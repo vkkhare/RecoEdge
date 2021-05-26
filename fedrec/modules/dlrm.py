@@ -1,7 +1,6 @@
 import abc
 from fedrec.preprocessor import DLRMPreprocessor
 import sys
-from argparse import ArgumentParser
 
 import numpy as np
 import torch
