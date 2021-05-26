@@ -1,0 +1,13 @@
+model : 
+  arch_interaction_op : args.arch_interaction_op
+  arch_interaction_itself : args.arch_interaction_itself
+  sync_dense_params: args.sync_dense_params
+  loss_threshold : args.loss_threshold
+  qr_flag: args.qr_flag
+  qr_operation: args.qr_operation
+  qr_collisions: args.qr_collisions
+  qr_threshold: args.qr_threshold
+  md_flag: args.md_flag
+  md_threshold: args.md_threshold
+  weighted_pooling: args.weighted_pooling
+  loss_function: args.loss_function
