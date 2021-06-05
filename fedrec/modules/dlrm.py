@@ -268,3 +268,12 @@ class DLRM_Net(nn.Module):
             out = torch.clamp(out, min=self.loss_threshold,
                               max=(1.0 - self.loss_threshold))
         return out
+    
+    def loss(self, output, true_label):
+        if self.loss_function == "mse" or self.loss_function == "bce":
+            return self.loss_fn(output, true_label)
+        elif self.loss_function == "wbce":
+            loss_ws_ = self.loss_ws[true_label.data.view(-1).long()].view_as(true_label)
+            loss_fn_ = self.loss_fn(output, true_label)
+            loss_sc_ = loss_ws_ * loss_fn_
+            return loss_sc_.mean()

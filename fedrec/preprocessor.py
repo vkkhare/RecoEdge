@@ -1,9 +1,5 @@
 
-import os
-
-import numpy as np
-from torch.multiprocessing import Manager, Process
-
+import torch
 from fedrec.utilities import registry
 
 
@@ -35,6 +31,11 @@ class DLRMPreprocessor:
         self.m_den = self.dataset_processor.m_den
         self.n_emb = self.dataset_processor.n_emb
         self.ln_emb = self.dataset_processor.ln_emb
- 
+
     def dataset(self, split):
         return self.dataset_processor.dataset(split)
+
+    def data_loader(self, data, **kwargs):
+        return torch.utils.data.Dataloader(
+            data, collate_fn=self.dataset_processor.collate_fn, **kwargs
+        )

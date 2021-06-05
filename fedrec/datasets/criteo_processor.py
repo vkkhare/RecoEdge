@@ -1,7 +1,7 @@
 
 from collections import defaultdict
 from fedrec.utilities import registry
-from fedrec.datasets.criteo import CriteoDataset
+from fedrec.datasets.criteo import CriteoDataset, collate_wrapper_criteo_length
 import os
 from sys import path
 
@@ -396,3 +396,7 @@ class CriteoDataProcessor:
             counts=self.counts,
             **self.data_items[split]
         )
+
+    @property
+    def collate_fn(self):
+        return collate_wrapper_criteo_length

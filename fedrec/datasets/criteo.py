@@ -58,7 +58,7 @@ def collate_wrapper_criteo_offset(list_of_tuples):
     lS_i = [X_cat[:, i] for i in range(featureCnt)]
     lS_o = [torch.tensor(range(batchSize)) for _ in range(featureCnt)]
 
-    return X_int, torch.stack(lS_o), torch.stack(lS_i), T
+    return (X_int, torch.stack(lS_o), torch.stack(lS_i)), T
 
 # Conversion from offset to length
 

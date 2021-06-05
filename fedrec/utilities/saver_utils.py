@@ -28,11 +28,7 @@ def load_checkpoint(model, optimizer, model_dir, map_location=None, step=None):
     if os.path.exists(path):
         print("Loading model from %s" % path)
         checkpoint = torch.load(path, map_location=map_location)
-        old_state_dict = model.state_dict()
-        for key in old_state_dict.keys():
-            if key not in checkpoint['model']:
-                checkpoint['model'][key] = old_state_dict[key]
-        model.load_state_dict(checkpoint['model'])
+        model.load_state_dict(checkpoint['model'], strict=False)
         optimizer.load_state_dict(checkpoint['optimizer'])
         return checkpoint.get('step', 0)
     return 0
