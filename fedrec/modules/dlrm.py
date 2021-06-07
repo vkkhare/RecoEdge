@@ -52,7 +52,7 @@ class DLRM_Net(nn.Module):
         for i in range(0, ln.size):
             # construct embedding operator
 
-            if ln[i] > emb_dict["threshold"]:
+            if emb_dict.get("custom", None) is not None & ln[i] > emb_dict["threshold"]:
                 EE = registry.construct("embedding", emb_dict["custom"],
                                         num_embeddings=ln[i],
                                         embedding_dim=m)
@@ -99,7 +99,7 @@ class DLRM_Net(nn.Module):
             self.ndevices = ndevices
             self.m_spa = arch_sparse_feature_size
             self.ln_emb = self.preproc.ln_emb
-            self.ln_bot = np.fromstring(arch_mlp_bot, dtype=int, sep="-")
+            self.ln_bot = arch_mlp_bot
             self.output_d = 0
             self.parallel_model_batch_size = -1
             self.parallel_model_is_not_prepared = True
@@ -128,8 +128,7 @@ class DLRM_Net(nn.Module):
                     + arch_interaction_op
                     + " is not supported"
                 )
-            self.ln_top = np.fromstring(str(num_int) + "-" + arch_mlp_top,
-                                        dtype=int, sep="-")
+            self.ln_top = [num_int] + arch_mlp_top
             self.sanity_check()
 
             # create operators

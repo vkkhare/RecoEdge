@@ -21,7 +21,7 @@ class TrainConfig:
     batch_size = attr.ib()
     eval_batch_size = attr.ib()
     num_epochs = attr.ib()
-    
+
     num_batches = attr.ib()
     @num_batches.validator
     def check_only_one_declaration(instance, _, value):
@@ -61,14 +61,6 @@ class Trainer:
             config.get("model_seed", None))
         self.init_random = random_state.RandomContext(
             config.get("init_seed", None))
-        with self.init_random:
-            self.preproc = registry.construct(
-                'preproc', config['model']['preproc'])
-            self.synthesizer = registry.construct()
-            self.optimizer = registry.construct(
-                'optimizer', config['train'])
-        self.lr_scheduler = registry.construct(
-            'lr_scheduler', config['train'])
 
         with self.model_random:
             # 1. Construct model
@@ -286,6 +278,9 @@ class Trainer:
 
 def main():
     parser = ArgumentParser()
+    parser.add_argument("--config", type=str)
+    parser.add_argument("--logdir", type=str)
+
     parser.add_argument("--weighted-pooling", type=str, default=None)
     # activations and loss
     parser.add_argument("--loss-function", type=str,
@@ -314,19 +309,6 @@ def main():
     parser.add_argument("--num_epochs", type=int, default=4)
     parser.add_argument("--num_eval_batches", type=int, default=-1)
 
-    parser.add_argument(
-        "--data-generation", type=str, default="random"
-    )  # synthetic or dataset
-
-    parser.add_argument(
-        "--dataset-multiprocessing",
-        action="store_true",
-        default=False,
-        help="The Kaggle dataset can be multiprocessed in an environment \
-                        with more than 7 CPU cores and more than 20 GB of memory. \n \
-                        The Terabyte dataset can be multiprocessed in an environment \
-                        with more than 24 CPU cores and at least 1 TB of memory.",
-    )
     # gpu
     parser.add_argument("--use-gpu", action="store_true", default=False)
     # store/load model

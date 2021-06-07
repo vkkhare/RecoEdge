@@ -2,8 +2,8 @@ model :
   name : "dlrm"
   
   arch_sparse_feature_size : 64
-  arch_mlp_bot : "13-512-256-64-16"
-  arch_mlp_top : "512-256-1"
+  arch_mlp_bot : [13, 512, 256, 64, 16]
+  arch_mlp_top : [512, 256, 1]
   arch_interaction_op : "dot"
   arch_interaction_itself : False
   sigmoid_bot : "relu"
@@ -15,12 +15,12 @@ model :
   embedding_types:
     threshold : 100
     
-    custom :
-      name : "qr_emb"
-      qr_collisions : ""
-      operation : "concat"
-      mode : "sum"
-      sparse : True
+    # custom :
+    #   name : "qr_emb"
+    #   qr_collisions : ""
+    #   operation : "concat"
+    #   mode : "sum"
+    #   sparse : True
     
     base :
       name : "torch_bag"
