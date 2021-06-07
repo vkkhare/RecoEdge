@@ -25,6 +25,7 @@ class CriteoDataProcessor:
             datafile,
             output_file,
             max_ind_range=0,
+            sub_sample_rate=0.0,
             randomize="day",
             dataset_multiprocessing=False,
     ):
@@ -36,6 +37,7 @@ class CriteoDataProcessor:
         self.npzfile = self.d_path + (self.d_file + "_day")
         self.trafile = self.d_path + (self.d_file + "_fea")
         self.dataset_multiprocessing = dataset_multiprocessing
+        self.sub_sample_rate = sub_sample_rate
         self.days = 7
         # dataset
         # tar_fea = 1   # single target
@@ -60,7 +62,7 @@ class CriteoDataProcessor:
             resultDay=None
     ):
         if dataset_multiprocessing:
-            convertDicts_day = [{} for _ in range(days)]
+            convertDicts_day = [{} for _ in range(26)]
         else:
             convertDicts = {}
 
@@ -80,7 +82,7 @@ class CriteoDataProcessor:
                 # process a line (data point)
                 out = CriteoDataProcessor._transform_line(
                     line,
-                    rand_u if sub_sample_rate == 0.0 else rand_u[k])
+                    rand_u if sub_sample_rate == 0.0 else rand_u[k], sub_sample_rate)
                 if out is None:
                     continue
                 y[i], X_int[i], X_cat[i] = out
@@ -150,7 +152,7 @@ class CriteoDataProcessor:
         self.n_emb = None
 
     def process_data(self):
-        total_per_file, total_count = self.get_counts(self.datafile)
+        total_count, total_per_file = self.get_counts(self.datafile)
         self.split_dataset(self.datafile, total_per_file)
 
         convertDicts = self.process_files(self.datafile, total_count,
@@ -237,10 +239,13 @@ class CriteoDataProcessor:
                                        i,
                                        total_per_file[i],
                                        dataset_multiprocessing,
-                                       convertDictsDay,
-                                       resultDay,
-                                       )
-                                 ) for i in range(0, self.days)]
+                                       self.days
+                                       ),
+                                 kwargs={
+                                     "sub_sample_rate" : self.sub_sample_rate,
+                                     "convertDictsDay": convertDictsDay,
+                                     "resultDay": resultDay
+                                 }) for i in range(0, self.days)]
             for process in processes:
                 process.start()
             for process in processes:
@@ -249,7 +254,7 @@ class CriteoDataProcessor:
                 total_per_file[day] = resultDay[day]
                 print("Constructing convertDicts Split: {}".format(day))
                 convertDicts_tmp = convertDictsDay[day]
-                for i in range(self.days):
+                for i in range(26):
                     for j in convertDicts_tmp[i]:
                         convertDicts[i][j] = 1
         else:

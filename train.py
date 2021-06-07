@@ -67,8 +67,7 @@ class Trainer:
             modelCls = registry.lookup('model', config['model'])
             self.model_preproc = registry.instantiate(
                 modelCls.Preproc,
-                config['model'],
-                unused_keys=('name',))
+                config['model']['preproc'])
             self.model_preproc.load()
 
             self.model = registry.instantiate(
