@@ -3,7 +3,6 @@ from collections import defaultdict
 from fedrec.utilities import registry
 from fedrec.datasets.criteo import CriteoDataset, collate_wrapper_criteo_length
 import os
-from sys import path
 
 import numpy as np
 from torch.multiprocessing import Manager, Process
@@ -36,6 +35,8 @@ class CriteoDataProcessor:
         self.d_file = lstr[-1].split(".")[0]
         self.npzfile = self.d_path + (self.d_file + "_day")
         self.trafile = self.d_path + (self.d_file + "_fea")
+        self.total_file = self.d_path + self.d_file + "_day_count.npz"
+
         self.dataset_multiprocessing = dataset_multiprocessing
         self.sub_sample_rate = sub_sample_rate
         self.days = 7
@@ -152,10 +153,10 @@ class CriteoDataProcessor:
         self.n_emb = None
 
     def process_data(self):
-        total_count, total_per_file = self.get_counts(self.datafile)
-        self.split_dataset(self.datafile, total_per_file)
+        _, total_per_file = self.get_counts()
+        self.split_dataset(total_per_file)
 
-        convertDicts = self.process_files(self.datafile, total_count,
+        convertDicts = self.process_files(self.datafile, self.total_file,
                                           total_per_file, self.dataset_multiprocessing)
 
         # dictionary files
@@ -181,7 +182,7 @@ class CriteoDataProcessor:
         if self.dataset_multiprocessing:
             processes = [Process(target=CriteoDataProcessor.processCriteoAdData,
                                  name="processCriteoAdData:%i" % i,
-                                 args=(self.npzfile, i, convertDicts)
+                                 args=(self.npzfile, i, self.days, convertDicts)
                                  ) for i in range(0, self.days)]
             for process in processes:
                 process.start()
@@ -190,16 +191,16 @@ class CriteoDataProcessor:
         else:
             for i in range(self.days):
                 CriteoDataProcessor.processCriteoAdData(
-                    self.npzfile, i, convertDicts)
+                    self.npzfile, i, self.days, convertDicts)
 
         return self.concat_data(self.output_file)
 
-    def split_dataset(self, datafile, total_per_file):
+    def split_dataset(self, total_per_file):
         # split into days (simplifies code later on)
         file_id = 0
         boundary = total_per_file[file_id]
         nf = open(self.npzfile + "_" + str(file_id), "w")
-        with open(str(datafile)) as f:
+        with open(str(self.datafile)) as f:
             for j, line in enumerate(f):
                 if j == boundary:
                     nf.close()
@@ -209,26 +210,32 @@ class CriteoDataProcessor:
                 nf.write(line)
         nf.close()
 
-    def get_counts(self, datafile):
-        total_count = 0
-        total_per_file = []
-        print("Reading data from path=%s" % (datafile))
-        with open(str(datafile)) as f:
-            for _ in f:
-                total_count += 1
-        total_per_file.append(total_count)
-        # reset total per file due to split
-        num_data_per_split, extras = divmod(total_count, self.days)
-        total_per_file = [num_data_per_split] * self.days
-        for j in range(extras):
-            total_per_file[j] += 1
+    def get_counts(self):
+        if os.path.exists(self.total_file):
+            with np.load(self.total_file) as data:
+                total_per_file = list(data["total_per_file"])
+            total_count = np.sum(total_per_file)
+            print("Skipping counts per file (already exist)")
+        else:
+            total_count = 0
+            total_per_file = []
+            print("Reading data from path=%s" % (self.datafile))
+            with open(str(self.datafile)) as f:
+                for _ in f:
+                    total_count += 1
+            total_per_file.append(total_count)
+            # reset total per file due to split
+            num_data_per_split, extras = divmod(total_count, self.days)
+            total_per_file = [num_data_per_split] * self.days
+            for j in range(extras):
+                total_per_file[j] += 1
         return total_count, total_per_file
 
     def process_files(
         self, total_count,
         total_file, total_per_file, dataset_multiprocessing
     ):
-        convertDicts = [{} for _ in range(self.days)]
+        convertDicts = [{} for _ in range(26)]
         if dataset_multiprocessing:
             resultDay = Manager().dict()
             convertDictsDay = Manager().dict()
@@ -272,8 +279,9 @@ class CriteoDataProcessor:
             np.savez_compressed(total_file, total_per_file=total_per_file)
         print("Total number of samples:", total_count)
         print("Divided into days/splits:\n", total_per_file)
+        return convertDicts
 
-    def processCriteoAdData(self, npzfile, i, convertDicts):
+    def processCriteoAdData(npzfile, i, days, convertDicts):
         filename_i = npzfile + "_{0}_processed.npz".format(i)
 
         if os.path.exists(filename_i):
@@ -284,19 +292,19 @@ class CriteoDataProcessor:
             # categorical features
             # Approach 2a: using pre-computed dictionaries
             X_cat_t = np.zeros(data["X_cat_t"].shape)
-            for j in range(self.days):
+            for j in range(days):
                 for k, x in enumerate(data["X_cat_t"][j, :]):
                     X_cat_t[j, k] = convertDicts[j][x]
             # continuous features
             X_int = data["X_int"]
             X_int[X_int < 0] = 0
-
-        np.savez_compressed(
-            filename_i,
-            X_cat=np.transpose(X_cat_t),  # transpose of the data
-            X_int=X_int,
-            y=data["y"],
-        )
+            
+            np.savez_compressed(
+                filename_i,
+                X_cat=np.transpose(X_cat_t),  # transpose of the data
+                X_int=X_int,
+                y=data["y"],
+            )
         print("Processed " + filename_i, end="\n")
 
     def concat_data(self, o_filename):
@@ -332,7 +340,7 @@ class CriteoDataProcessor:
         return self.d_path + o_filename + ".npz"
 
     def load(self):
-        if not path.exists(str(self.output_file)):
+        if not os.path.exists(str(self.output_file)):
             assert False, "data not processed"
 
         # pre-process data if needed

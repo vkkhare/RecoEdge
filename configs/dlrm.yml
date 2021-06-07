@@ -30,7 +30,7 @@ model :
   
   preproc :
     datafile : "/home/vkkhare/datablaze/criteo_dataset/train.txt"
-    output_file : "/home/vkkhare/datablaze/criteo_dataset/kaggleAdDisplayChallenge_processed.npz"
+    output_file : "kaggleAdDisplayChallenge_processed"
     dataset_config :
       name : "kaggle"
       dataset_multiprocessing : True
