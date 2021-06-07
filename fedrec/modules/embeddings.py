@@ -90,8 +90,12 @@ class EmbeddingBag(nn.EmbeddingBag):
 
 @registry.load("embedding", "pr_emb")
 class PrEmbeddingBag(nn.Module):
-    def __init__(self, num_embeddings, embedding_dim, base_dim, init=False):
+    def __init__(self, num_embeddings, embedding_dim, base_dim=None, index=-1, init=False):
         super(PrEmbeddingBag, self).__init__()
+        if base_dim is None:
+            assert index >= 0, "PR emb either specify base dimension or extraction index"
+            base_dim = max(embedding_dim)
+            embedding_dim = embedding_dim[index]
         self.embs = nn.EmbeddingBag(
             num_embeddings, embedding_dim, mode="sum", sparse=True)
         torch.nn.init.xavier_uniform_(self.embs.weight)

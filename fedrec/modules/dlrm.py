@@ -46,25 +46,20 @@ class DLRM_Net(nn.Module):
                        registry.load('sigmoid_layer', sigmoid_layer)]
         return nn.ModuleList(layers)
 
-    def create_emb(self, m, ln, weighted_pooling=None):
+    def create_emb(self, m, ln, emb_dict, weighted_pooling=None):
         emb_l = nn.ModuleList()
         v_W_l = []
         for i in range(0, ln.size):
             # construct embedding operator
-            registry.construct("embedding",
-                               num_embeddings=ln[i],
-                               embedding_dim=m, **dict)
-            if self.qr_flag and ln[i] > self.qr_threshold:
-                EE = QREmbeddingBag(
-                    ln[i],
-                    m,
-                    **dict
-                )
-            elif self.md_flag and ln[i] > self.md_threshold:
-                EE = PrEmbeddingBag(ln[i], m[i], max(m))
-            else:
-                EE = nn.EmbeddingBag(ln[i], m, **dict)
 
+            if ln[i] > emb_dict["threshold"]:
+                EE = registry.construct("embedding", emb_dict["custom"],
+                                        num_embeddings=ln[i],
+                                        embedding_dim=m)
+            else:
+                EE = registry.construct("embedding", emb_dict["base"],
+                                        num_embeddings=ln[i],
+                                        embedding_dim=m)
             if weighted_pooling is None:
                 v_W_l.append(None)
             else:
@@ -74,21 +69,18 @@ class DLRM_Net(nn.Module):
 
     def __init__(
         self,
-        preproc : DLRMPreprocessor,
+        preproc: DLRMPreprocessor,
         arch_sparse_feature_size=None,
-        ln_emb=None,
         arch_mlp_bot=None,
         arch_mlp_top=None,
         arch_interaction_op=None,
         arch_interaction_itself=False,
-        sigmoid_bot=-1,
-        sigmoid_top=-1,
-        sync_dense_params=True,
+        sigmoid_bot="relu",
+        sigmoid_top="relu",
         loss_weights=None,
         loss_threshold=0.0,
         ndevices=-1,
-        qr_dict={},
-        md_dict={},
+        embedding_types={},
         weighted_pooling=None,
         loss_function="bce"
     ):
@@ -97,7 +89,7 @@ class DLRM_Net(nn.Module):
 
         if (
             (arch_sparse_feature_size is not None)
-            and (ln_emb is not None)
+            and (self.preproc.ln_emb is not None)
             and (arch_mlp_bot is not None)
             and (arch_mlp_top is not None)
             and (arch_interaction_op is not None)
@@ -113,13 +105,11 @@ class DLRM_Net(nn.Module):
             self.parallel_model_is_not_prepared = True
             self.arch_interaction_op = arch_interaction_op
             self.arch_interaction_itself = arch_interaction_itself
-            self.sync_dense_params = sync_dense_params
             self.loss_threshold = loss_threshold
             self.loss_function = loss_function
 
             # create variables for QR embedding if applicable
-            self.qr_dict = qr_dict
-            self.md_dict = md_dict
+            self.emb_dict = embedding_types
 
             ### parse command line arguments ###
             num_fea = self.ln_emb.size + 1  # num sparse + num dense features
@@ -144,7 +134,7 @@ class DLRM_Net(nn.Module):
 
             # create operators
             self.emb_l, w_list = self.create_emb(
-                arch_sparse_feature_size, ln_emb, weighted_pooling)
+                self.m_spa, self.ln_emb, self.emb_dict, weighted_pooling)
 
             if weighted_pooling is not None and weighted_pooling != "fixed":
                 self.weighted_pooling = "learned"
@@ -179,8 +169,7 @@ class DLRM_Net(nn.Module):
         # the embeddings are distributed and use model parallelism
         if self.ndevices > 1:
             self.emb_l, self.v_W_l = self.create_emb(
-                self.m_spa, self.ln_emb, self.weighted_pooling
-            )
+                self.m_spa, self.ln_emb, self.emb_dict, self.weighted_pooling)
         else:
             if self.weighted_pooling == "fixed":
                 for k, w in enumerate(self.v_W_l):
@@ -268,12 +257,13 @@ class DLRM_Net(nn.Module):
             out = torch.clamp(out, min=self.loss_threshold,
                               max=(1.0 - self.loss_threshold))
         return out
-    
+
     def loss(self, output, true_label):
         if self.loss_function == "mse" or self.loss_function == "bce":
             return self.loss_fn(output, true_label)
         elif self.loss_function == "wbce":
-            loss_ws_ = self.loss_ws[true_label.data.view(-1).long()].view_as(true_label)
+            loss_ws_ = self.loss_ws[true_label.data.view(
+                -1).long()].view_as(true_label)
             loss_fn_ = self.loss_fn(output, true_label)
             loss_sc_ = loss_ws_ * loss_fn_
             return loss_sc_.mean()

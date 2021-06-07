@@ -1,13 +1,58 @@
 model : 
-  arch_interaction_op : args.arch_interaction_op
-  arch_interaction_itself : args.arch_interaction_itself
-  sync_dense_params: args.sync_dense_params
-  loss_threshold : args.loss_threshold
-  qr_flag: args.qr_flag
-  qr_operation: args.qr_operation
-  qr_collisions: args.qr_collisions
-  qr_threshold: args.qr_threshold
-  md_flag: args.md_flag
-  md_threshold: args.md_threshold
-  weighted_pooling: args.weighted_pooling
-  loss_function: args.loss_function
+  name : "dlrm"
+  
+  arch_sparse_feature_size : 64
+  arch_mlp_bot : "13-512-256-64-16"
+  arch_mlp_top : "512-256-1"
+  arch_interaction_op : "dot"
+  arch_interaction_itself : False
+  sigmoid_bot : "relu"
+  sigmoid_top : "relu"
+
+  loss_function: "mse"
+  weighted_pooling: "learned"
+  
+  embedding_types:
+    threshold : 100
+    
+    custom :
+      name : "qr_emb"
+      qr_collisions : ""
+      operation : "concat"
+      mode : "sum"
+      sparse : True
+    
+    base :
+      name : "torch_bag"
+      mode : "sum"
+      sparse : True
+
+  
+  preproc :
+    datafile : "./input/train.txt"
+    output_file : "./input/kaggleAdDisplayChallenge_processed.npz"
+    dataset_config :
+      name : "kaggle"
+      dataset_multiprocessing : True
+
+
+
+
+train :
+    batch_size : 128
+    eval_batch_size : 256
+    # Seed for RNG used in shuffling the training data.
+    data_seed : 100
+    # Seed for RNG used in initializing the model.
+    init_seed : 100
+    # Seed for RNG used in computing the model's training loss.
+    # Only relevant with internal randomness in the model, e.g. with dropout.
+    model_seed : 100
+
+    optimizer :
+      name : "adam"
+      lr : 0.1
+    
+    lr_scheduler :
+      name : "plateau"
+      step : 0.1 

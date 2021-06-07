@@ -13,7 +13,6 @@ class InferenceMaker:
     def __init__(self, config, devices, log_dir) -> None:
         self.devices = devices
         if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(args.numpy_rand_seed)
             torch.backends.cudnn.deterministic = True
             device = torch.device("cuda", 0)
         else:
@@ -59,27 +58,19 @@ class InferenceMaker:
 
     def inference(
         self,
-        args,
         model,
-        best_acc_test,
-        best_auc_test,
-        test_loader,
-        log_iter=-1,
+        test_loader
     ):
         test_accu = 0
         test_samp = 0
         scores = []
         targets = []
-
+        model.eval()
         for i, testBatch in enumerate(test_loader):
-            # early exit if nbatches was set by the user and was exceeded
-            if nbatches > 0 and i >= nbatches:
-                break
-
             inputs, true_labels = testBatch
 
             # forward pass
-            Z_test = self.model(*inputs)
+            Z_test = model(*inputs)
 
             S_test = Z_test.detach().cpu().numpy()  # numpy array
             T_test = true_labels.detach().cpu().numpy()  # numpy array
@@ -109,48 +100,13 @@ class InferenceMaker:
             ),
         }
 
-        validation_results = {}
-        for metric_name, metric_function in metrics_dict.items():
-            validation_results[metric_name] = metric_function(targets, scores)
-            writer.add_scalar(
-                "mlperf-metrics-test/" + metric_name,
-                validation_results[metric_name],
-                log_iter,
-            )
-        acc_test = validation_results["accuracy"]
-
-        model_metrics_dict = {
-            "nepochs": args.nepochs,
-            "nbatches": nbatches,
-            "nbatches_test": nbatches_test,
-            "state_dict": model.state_dict(),
-            "test_acc": acc_test,
+        return {
+            metric_name: metric_function(targets, scores)
+            for metric_name, metric_function in metrics_dict.items()
         }
 
-        is_best = validation_results["roc_auc"] > best_auc_test
-        if is_best:
-            best_auc_test = validation_results["roc_auc"]
-            model_metrics_dict["test_auc"] = best_auc_test
-        print(
-            "recall {:.4f}, precision {:.4f},".format(
-                validation_results["recall"],
-                validation_results["precision"],
-            )
-            + " f1 {:.4f}, ap {:.4f},".format(
-                validation_results["f1"], validation_results["ap"]
-            )
-            + " auc {:.4f}, best auc {:.4f},".format(
-                validation_results["roc_auc"], best_auc_test
-            )
-            + " accuracy {:3.3f} %, best accuracy {:3.3f} %".format(
-                validation_results["accuracy"] * 100, best_acc_test * 100
-            ),
-            flush=True,
-        )
-        return model_metrics_dict, is_best
 
 def main():
-    global writer
     parser = ArgumentParser()
     parser.add_argument("--weighted-pooling", type=str, default=None)
     # activations and loss
@@ -191,6 +147,7 @@ def main():
     # Construct trainer and do training
     tester = InferenceMaker(logger, config)
     tester.inference(config, modeldir=args.logdir)
+
 
 if __name__ == "__main__":
     main()

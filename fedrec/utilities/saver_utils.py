@@ -1,11 +1,8 @@
 """Tools to save/restore model from checkpoints."""
 
-import argparse
 import shutil
-import sys
 import os
 import re
-import json
 
 import torch
 
@@ -21,6 +18,15 @@ class ArgsDict(dict):
         self.__dict__ = self
 
 
+def create_link(original, link_name):
+    if os.path.islink(link_name):
+        os.unlink(link_name)
+    try:
+        os.symlink(os.path.basename(original), link_name)
+    except OSError:
+        shutil.copy2(original, link_name)
+
+
 def load_checkpoint(model, optimizer, model_dir, map_location=None, step=None):
     path = os.path.join(model_dir, 'model_checkpoint')
     if step is not None:
@@ -30,8 +36,8 @@ def load_checkpoint(model, optimizer, model_dir, map_location=None, step=None):
         checkpoint = torch.load(path, map_location=map_location)
         model.load_state_dict(checkpoint['model'], strict=False)
         optimizer.load_state_dict(checkpoint['optimizer'])
-        return checkpoint.get('step', 0)
-    return 0
+        return checkpoint.get('step', 0), checkpoint.get('epoch', 0)
+    return 0, 0
 
 
 def load_and_map_checkpoint(model, model_dir, remap):
@@ -45,7 +51,7 @@ def load_and_map_checkpoint(model, model_dir, remap):
     model.load_state_dict(new_state_dict)
 
 
-def save_checkpoint(model, optimizer, step, model_dir, ignore=[],
+def save_checkpoint(model, optimizer, step, epoch, model_dir, is_best, ignore=[],
                     keep_every_n=10000000):
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
@@ -61,14 +67,11 @@ def save_checkpoint(model, optimizer, step, model_dir, ignore=[],
     torch.save({
         'model': state_dict,
         'optimizer': optimizer.state_dict(),
+        'epoch': epoch,
         'step': step
     }, path_with_step)
-    if os.path.islink(path_without_step):
-        os.unlink(path_without_step)
-    try:
-        os.symlink(os.path.basename(path_with_step), path_without_step)
-    except OSError:
-        shutil.copy2(path_with_step, path_without_step)
+    create_link(path_with_step, path_without_step)
+    create_link(path_with_step, os.path.join(model_dir, 'best_checkpoint'))
 
     # Cull old checkpoints.
     if keep_every_n is not None:
@@ -102,18 +105,18 @@ class Saver(object):
         Returns:
            Last training step for the model restored.
         """
-        last_step = load_checkpoint(
+        last_step, epoch = load_checkpoint(
             self._model, self._optimizer, model_dir, map_location, step)
-        return last_step
+        return last_step, epoch
 
-    def save(self, model_dir, step):
+    def save(self, model_dir, step, epoch, is_best=False):
         """Saves model and optimizer to given directory.
         Args:
            model_dir: Model directory to save.
            step: Current training step.
         """
-        save_checkpoint(self._model, self._optimizer, step, model_dir,
-                        keep_every_n=self._keep_every_n)
+        save_checkpoint(self._model, self._optimizer, step, epoch, model_dir,
+                        keep_every_n=self._keep_every_n, is_best=is_best)
 
     def restore_part(self, other_model_dir, remap):
         """Restores part of the model from other directory.
