@@ -15,7 +15,6 @@ class CriteoDataset(Dataset):
         self.X_int = X_int
         self.X_cat = X_cat
         self.y = y
-        print("Sparse fea = %d, Dense fea = %d" % (self.n_emb, self.m_den))
 
     def __getitem__(self, index):
 
@@ -91,7 +90,6 @@ def collate_wrapper_criteo_length(list_of_tuples):
     )
 
     lS_l = offset_to_length_converter(lS_o, lS_i)
-
     return X_int, lS_l, lS_i, T
 
 

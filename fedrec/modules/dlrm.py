@@ -1,4 +1,5 @@
 import abc
+from tkinter.constants import NO
 from fedrec.preprocessor import DLRMPreprocessor
 import sys
 
@@ -43,8 +44,8 @@ class DLRM_Net(nn.Module):
         layers = []
         for in_f, out_f in zip(ln, ln[1:]):
             layers += [xavier_init(nn.Linear(in_f, out_f, True)),
-                       registry.load('sigmoid_layer', sigmoid_layer)]
-        return nn.ModuleList(layers)
+                       registry.construct('sigmoid_layer', {'name': sigmoid_layer})]
+        return torch.nn.Sequential(*layers)
 
     def create_emb(self, m, ln, emb_dict, weighted_pooling=None):
         emb_l = nn.ModuleList()
@@ -52,7 +53,7 @@ class DLRM_Net(nn.Module):
         for i in range(0, ln.size):
             # construct embedding operator
 
-            if emb_dict.get("custom", None) is not None & ln[i] > emb_dict["threshold"]:
+            if (emb_dict.get("custom", None) is not None) and (ln[i] > emb_dict["threshold"]):
                 EE = registry.construct("embedding", emb_dict["custom"],
                                         num_embeddings=ln[i],
                                         embedding_dim=m)
@@ -69,7 +70,7 @@ class DLRM_Net(nn.Module):
 
     def __init__(
         self,
-        preproc: DLRMPreprocessor,
+        preprocessor: DLRMPreprocessor,
         arch_sparse_feature_size=None,
         arch_mlp_bot=None,
         arch_mlp_top=None,
@@ -85,7 +86,7 @@ class DLRM_Net(nn.Module):
         loss_function="bce"
     ):
         super(DLRM_Net, self).__init__()
-        self.preproc = preproc
+        self.preproc = preprocessor
 
         if (
             (arch_sparse_feature_size is not None)
@@ -129,7 +130,7 @@ class DLRM_Net(nn.Module):
                     + " is not supported"
                 )
             self.ln_top = [num_int] + arch_mlp_top
-            self.sanity_check()
+            # self.sanity_check()
 
             # create operators
             self.emb_l, w_list = self.create_emb(
@@ -176,8 +177,9 @@ class DLRM_Net(nn.Module):
 
     def sanity_check(self):
         # sanity check: feature sizes and mlp dimensions must match
-        if self.qr_dict['qr_flag']:
-            if self.qr_dict['qr_operation'] == "concat" and 2 * self.m_spa != self.ln_bot[-1]:
+        if ((self.emb_dict.get('custom', None) is not None)
+                and (self.emb_dict['custom']['name'] == 'qr_emb')):
+            if self.emb_dict["custom"]['qr_operation'] == "concat" and 2 * self.m_spa != self.ln_bot[-1]:
                 sys.exit(
                     "ERROR: 2 arch-sparse-feature-size "
                     + str(2 * self.m_spa)

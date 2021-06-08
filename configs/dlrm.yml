@@ -50,9 +50,11 @@ train :
     model_seed : 100
 
     optimizer :
-      name : "adam"
+      name : "sparse_adam"
       lr : 0.1
     
     lr_scheduler :
-      name : "plateau"
-      step : 0.1 
+      name : "dlrm"
+      num_warmup_steps : 1000
+      decay_start_step : 2000
+      num_decay_steps : 1000

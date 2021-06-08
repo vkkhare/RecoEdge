@@ -340,13 +340,13 @@ class CriteoDataProcessor:
         return self.d_path + o_filename + ".npz"
 
     def load(self):
-        if not os.path.exists(str(self.output_file)):
+        if not os.path.exists(str(self.d_path + self.output_file + ".npz")):
             assert False, "data not processed"
 
         # pre-process data if needed
         # WARNNING: when memory mapping is used we get a collection of files
-        print("Reading pre-processed data=%s" % (str(self.output_file)))
-        file = str(self.output_file)
+        print("Reading pre-processed data=%s" % (str(self.d_path + self.output_file + ".npz")))
+        file = str(self.d_path + self.output_file + ".npz")
 
         # get a number of samples per day
         total_file = self.d_path + self.d_file + "_day_count.npz"
@@ -376,6 +376,7 @@ class CriteoDataProcessor:
             self.ln_emb = np.array(counts)
 
         indices = self.permute_data(len(y), offset_per_file)
+        print("Sparse fea = %d, Dense fea = %d" % (self.n_emb, self.m_den))
 
         for split, indxs in indices.items():
             self.data_items[split]["X_int"] = [X_int[i] for i in indxs]
@@ -406,7 +407,6 @@ class CriteoDataProcessor:
     def dataset(self, split):
         return CriteoDataset(
             max_ind_range=self.max_ind_range,
-            counts=self.counts,
             **self.data_items[split]
         )
 

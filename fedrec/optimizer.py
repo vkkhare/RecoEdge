@@ -6,6 +6,9 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 from fedrec.utilities import registry
 
+registry.load('optimizer','sgd')(torch.optim.SGD)
+registry.load('optimizer','adam')(torch.optim.Adam)
+registry.load('optimizer','sparse_adam')(torch.optim.SparseAdam)
 
 @registry.load('lr_scheduler', 'dlrm')
 class LRPolicyScheduler(_LRScheduler):

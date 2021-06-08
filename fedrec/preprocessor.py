@@ -9,8 +9,7 @@ class DLRMPreprocessor:
             self,
             datafile,
             output_file,
-            dataset_config
-    ):
+            dataset_config):
         self.dataset_config = dataset_config
         self.datafile = datafile
         self.output_file = output_file
@@ -36,6 +35,6 @@ class DLRMPreprocessor:
         return self.dataset_processor.dataset(split)
 
     def data_loader(self, data, **kwargs):
-        return torch.utils.data.Dataloader(
+        return torch.utils.data.DataLoader(
             data, collate_fn=self.dataset_processor.collate_fn, **kwargs
         )

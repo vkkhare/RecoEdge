@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from fedrec.utilities.cuda_utils import map_to_cuda
 from fedrec.utilities.logger import TBLogger
 
 import numpy as np
@@ -23,11 +24,13 @@ class TrainConfig:
     num_epochs = attr.ib()
 
     num_batches = attr.ib()
+
     @num_batches.validator
     def check_only_one_declaration(instance, _, value):
-        if instance.num_epochs>0 & value>0:
-            raise ValueError("only one out of num_epochs and num_batches must be declared!")
-    
+        if instance.num_epochs > 0 & value > 0:
+            raise ValueError(
+                "only one out of num_epochs and num_batches must be declared!")
+
     num_eval_batches = attr.ib(default=-1)
     eval_on_train = attr.ib(default=False)
     eval_on_val = attr.ib(default=True)
@@ -42,19 +45,22 @@ class TrainConfig:
 
 
 class Trainer:
-    def __init__(self, args, config, log_dir, logger: TBLogger, devices=[0]) -> None:
-        self.devices = devices
-        if torch.cuda.is_available():
+    def __init__(self, args, config, logger: TBLogger) -> None:
+        self.devices = args.devices
+        if torch.cuda.is_available() and (self.devices[0] != -1):
             # torch.backends.cudnn.deterministic = True
+            torch.cuda.set_device(self.devices[0])
             device = torch.device("cuda", self.devices[0])
         else:
             device = torch.device("cpu")
             print("Using CPU...")
 
-        self.log_dir = log_dir
+        self.log_dir = args.logdir
         self.logger = logger
+        arg_dict = vars(args)
+        del arg_dict["config"]
         self.train_config = registry.instantiate(
-            TrainConfig, config['train'], **vars(args))
+            TrainConfig, config['train'], **arg_dict)
         self.data_random = random_state.RandomContext(
             config.get("data_seed", None))
         self.model_random = random_state.RandomContext(
@@ -72,7 +78,7 @@ class Trainer:
 
             self.model = registry.instantiate(
                 modelCls, config['model'],
-                unused_keys=(), device=device
+                preprocessor=self.model_preproc
             )
 
         if torch.cuda.is_available():
@@ -89,7 +95,6 @@ class Trainer:
                 yield batch, new_epoch
                 if new_epoch == 1:
                     new_epoch = 0
-
 
     @staticmethod
     def eval_model(
@@ -181,7 +186,7 @@ class Trainer:
         # slight difference here vs. unrefactored train: The init_random starts over here. Could be fixed if it was important by saving random state at end of init
         with self.init_random:
             optimizer = registry.construct(
-                'optimizer', config['optimizer'],
+                'optimizer', config['train']['optimizer'],
                 params=self.model.parameters())
 
         # 2. Restore model parameters
@@ -192,7 +197,7 @@ class Trainer:
         with self.init_random:
             lr_scheduler = registry.construct(
                 'lr_scheduler',
-                config.get('lr_scheduler', {'name': 'noop'}),
+                config['train'].get('lr_scheduler', {'name': 'noop'}),
                 last_epoch=last_step,
                 optimizer=optimizer)
 
@@ -219,9 +224,10 @@ class Trainer:
         with self.data_random:
             best_acc_test = 0
             best_auc_test = 0
-            self.logger.add_graph(self.model, next(iter(train_data_loader)))
+            dummy_input = map_to_cuda(next(iter(train_data_loader))[0])
+            self.logger.add_graph(self.model, dummy_input[0:3])
 
-            for new_epoch, batch in train_data_loader:
+            for batch, new_epoch in train_data_loader:
                 current_epoch = new_epoch + current_epoch
                 # Quit if too long
                 if self.train_config.num_batches > 0 & last_step >= self.train_config.num_batches:
@@ -248,12 +254,13 @@ class Trainer:
                                 num_eval_batches=self.train_config.num_eval_items,
                                 best_acc_test=best_acc_test, best_auc_test=best_auc_test,
                                 step=last_step):
-                            saver.save(modeldir, last_step, current_epoch-1, is_best=True)
+                            saver.save(modeldir, last_step,
+                                       current_epoch-1, is_best=True)
 
                 # Compute and apply gradient
                 with self.model_random:
                     optimizer.zero_grad()
-                    input, true_label = batch
+                    input, true_label = map_to_cuda(batch)
                     output = self.model(*input)
                     loss = self.model.loss(output, true_label)
                     loss.backward()
@@ -309,7 +316,7 @@ def main():
     parser.add_argument("--num_eval_batches", type=int, default=-1)
 
     # gpu
-    parser.add_argument("--use-gpu", action="store_true", default=False)
+    parser.add_argument("--devices", nargs="+", default=[-1], type=int)
     # store/load model
     parser.add_argument("--save-model", type=str, default="")
     parser.add_argument("--load-model", type=str, default="")
@@ -319,7 +326,7 @@ def main():
         config = yaml.safe_load(stream)
 
     # Construct trainer and do training
-    trainer = Trainer(TBLogger(args.logdir), config)
+    trainer = Trainer(args, config, TBLogger(args.logdir))
     trainer.train(config, modeldir=args.logdir)
 
 
