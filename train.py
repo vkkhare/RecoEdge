@@ -35,6 +35,8 @@ class TrainConfig:
     eval_on_train = attr.ib(default=False)
     eval_on_val = attr.ib(default=True)
 
+    num_workers = attr.ib(default=0)
+
     # Seed for RNG used in shuffling the training data.
     data_seed = attr.ib(default=None)
     # Seed for RNG used in initializing the model.
@@ -106,8 +108,6 @@ class Trainer:
             best_acc_test=None,
             best_auc_test=None,
             step=-1):
-        test_accu = 0
-        test_samp = 0
         scores = []
         targets = []
         model.eval()
@@ -115,20 +115,18 @@ class Trainer:
             # early exit if nbatches was set by the user and was exceeded
             if num_eval_batches > 0 and i >= num_eval_batches:
                 break
+            loader.set_description(f"Running {eval_section}")
 
-            inputs, true_labels = testBatch
+            inputs, true_labels = map_to_cuda(testBatch)
 
             # forward pass
             Z_test = model(*inputs)
 
             S_test = Z_test.detach().cpu().numpy()  # numpy array
             T_test = true_labels.detach().cpu().numpy()  # numpy array
-
-            mbs_test = T_test.shape[0]  # = mini_batch_size except last
-            A_test = np.sum((np.round(S_test, 0) == T_test).astype(np.uint8))
-
-            test_accu += A_test
-            test_samp += mbs_test
+            
+            scores.append(S_test)
+            targets.append(T_test)
 
         model.train()
         scores = np.concatenate(scores, axis=0)
@@ -208,16 +206,19 @@ class Trainer:
                 self.model_preproc.data_loader(
                     train_data,
                     batch_size=self.train_config.batch_size,
+                    num_workers=self.train_config.num_workers,
                     shuffle=True,
                     drop_last=True))
 
         train_eval_data_loader = self.model_preproc.data_loader(
             train_data,
+            num_workers=self.train_config.num_workers,
             batch_size=self.train_config.eval_batch_size)
 
         val_data = self.model_preproc.dataset('val')
         val_data_loader = self.model_preproc.data_loader(
             val_data,
+            num_workers=self.train_config.num_workers,
             batch_size=self.train_config.eval_batch_size)
 
         # 4. Start training loop
@@ -225,7 +226,7 @@ class Trainer:
             best_acc_test = 0
             best_auc_test = 0
             dummy_input = map_to_cuda(next(iter(train_data_loader))[0])
-            self.logger.add_graph(self.model, dummy_input[0:3])
+            self.logger.add_graph(self.model, dummy_input[0])
 
             for batch, new_epoch in train_data_loader:
                 current_epoch = new_epoch + current_epoch
@@ -234,6 +235,7 @@ class Trainer:
                     break
                 if self.train_config.num_epochs > 0 & current_epoch >= self.train_config.num_epochs:
                     break
+                train_data_loader.set_description(f"Epoch {current_epoch}")
 
                 # Evaluate model
                 if last_step % self.train_config.eval_every_n == 0:
@@ -242,7 +244,7 @@ class Trainer:
                             self.model,
                             train_eval_data_loader,
                             eval_section='train',
-                            num_eval_batches=self.train_config.num_eval_items,
+                            num_eval_batches=self.train_config.num_eval_batches,
                             logger=self.logger, step=last_step)
 
                     if self.train_config.eval_on_val:
@@ -251,7 +253,7 @@ class Trainer:
                                 val_data_loader,
                                 eval_section='val',
                                 logger=self.logger,
-                                num_eval_batches=self.train_config.num_eval_items,
+                                num_eval_batches=self.train_config.num_eval_batches,
                                 best_acc_test=best_acc_test, best_auc_test=best_auc_test,
                                 step=last_step):
                             saver.save(modeldir, last_step,
@@ -313,6 +315,7 @@ def main():
     parser.add_argument("--model_seed", type=int, default=100)
     parser.add_argument("--num_batches", type=int, default=-1)
     parser.add_argument("--num_epochs", type=int, default=4)
+    parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--num_eval_batches", type=int, default=-1)
 
     # gpu

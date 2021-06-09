@@ -213,7 +213,7 @@ class DLRM_Net(nn.Module):
                 0, lsi) if vwl is not None else None
             ly[i] = emb(
                 lsi,
-                lso,
+                lso.long(),
                 per_sample_weights=per_sample_weights,
             )
         return ly

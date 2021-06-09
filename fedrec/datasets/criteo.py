@@ -90,7 +90,7 @@ def collate_wrapper_criteo_length(list_of_tuples):
     )
 
     lS_l = offset_to_length_converter(lS_o, lS_i)
-    return X_int, lS_l, lS_i, T
+    return (X_int, lS_l, lS_i), T
 
 
 def make_criteo_data_and_loaders(args, offset_to_length_converter=False):
