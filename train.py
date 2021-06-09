@@ -14,16 +14,16 @@ from fedrec.utilities.serialization import dash_separated_floats
 
 @attr.s
 class TrainConfig:
-    eval_every_n = attr.ib()
-    report_every_n = attr.ib()
-    save_every_n = attr.ib()
-    keep_every_n = attr.ib()
+    eval_every_n = attr.ib(default=100)
+    report_every_n = attr.ib(default=10)
+    save_every_n = attr.ib(default=1000)
+    keep_every_n = attr.ib(default=1000)
 
-    batch_size = attr.ib()
-    eval_batch_size = attr.ib()
-    num_epochs = attr.ib()
+    batch_size = attr.ib(default=128)
+    eval_batch_size = attr.ib(default=256)
+    num_epochs = attr.ib(default=-1)
 
-    num_batches = attr.ib()
+    num_batches = attr.ib(default=-1)
 
     @num_batches.validator
     def check_only_one_declaration(instance, _, value):
@@ -36,14 +36,24 @@ class TrainConfig:
     eval_on_val = attr.ib(default=True)
 
     num_workers = attr.ib(default=0)
+    pin_memory = attr.ib(default=True)
 
     # Seed for RNG used in shuffling the training data.
-    data_seed = attr.ib(default=None)
+    data_seed = attr.ib(default=100)
     # Seed for RNG used in initializing the model.
-    init_seed = attr.ib(default=None)
+    init_seed = attr.ib(default=100)
     # Seed for RNG used in computing the model's training loss.
     # Only relevant with internal randomness in the model, e.g. with dropout.
-    model_seed = attr.ib(default=None)
+    model_seed = attr.ib(default=100)
+
+    @classmethod
+    def merge_and_instantiate(cls, config, args):
+        arg_dict = vars(args)
+        del arg_dict['config']
+        stripped_dict = {k: v for k, v in arg_dict.items() if (
+            (k in config) and (v is not None))}
+        merged = {**config, **stripped_dict}
+        return registry.instantiate(cls, merged)
 
 
 class Trainer:
@@ -59,10 +69,8 @@ class Trainer:
 
         self.log_dir = args.logdir
         self.logger = logger
-        arg_dict = vars(args)
-        del arg_dict["config"]
-        self.train_config = registry.instantiate(
-            TrainConfig, config['train']['config'], **arg_dict)
+        self.train_config = TrainConfig.merge_and_instantiate(
+            config['train']['config'], args)
         self.data_random = random_state.RandomContext(
             config.get("data_seed", None))
         self.model_random = random_state.RandomContext(
@@ -138,7 +146,7 @@ class Trainer:
                 y_true=y_true, y_pred=np.round(y_score)
             ),
             "precision": lambda y_true, y_score: metrics.precision_score(
-                y_true=y_true, y_pred=np.round(y_score)
+                y_true=y_true, y_pred=np.round(y_score), zero_division=0.0
             ),
             "f1": lambda y_true, y_score: metrics.f1_score(
                 y_true=y_true, y_pred=np.round(y_score)
@@ -208,11 +216,13 @@ class Trainer:
                     train_data,
                     batch_size=self.train_config.batch_size,
                     num_workers=self.train_config.num_workers,
+                    pin_memory=self.train_config.pin_memory,
                     shuffle=True,
                     drop_last=True), start_epoch=current_epoch)
 
         train_eval_data_loader = self.model_preproc.data_loader(
             train_data,
+            pin_memory=self.train_config.pin_memory,
             num_workers=self.train_config.num_workers,
             batch_size=self.train_config.eval_batch_size)
 
@@ -220,6 +230,7 @@ class Trainer:
         val_data_loader = self.model_preproc.data_loader(
             val_data,
             num_workers=self.train_config.num_workers,
+            pin_memory=self.train_config.pin_memory,
             batch_size=self.train_config.eval_batch_size)
 
         # 4. Start training loop
@@ -261,7 +272,7 @@ class Trainer:
                 # Compute and apply gradient
                 with self.model_random:
                     optimizer.zero_grad()
-                    input, true_label = map_to_cuda(batch)
+                    input, true_label = map_to_cuda(batch, non_blocking=True)
                     output = self.model(*input)
                     loss = self.model.loss(output, true_label)
                     loss.backward()
@@ -298,24 +309,25 @@ def main():
     parser.add_argument("--round-targets", type=bool, default=False)
 
     # train Config
-    parser.add_argument("--data_size", type=int, default=1)
-    parser.add_argument("--eval_every_n", type=int, default=100)
-    parser.add_argument("--report_every_n", type=int, default=10)
-    parser.add_argument("--save_every_n", type=int, default=100)
-    parser.add_argument("--keep_every_n", type=int, default=1000)
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--eval_batch_size", type=int, default=64)
-    parser.add_argument("--eval_on_train", type=bool, default=False)
-    parser.add_argument("--eval_on_val", type=bool, default=True)
-    parser.add_argument("--data_seed", type=int, default=100)
-    parser.add_argument("--init_seed", type=int, default=100)
-    parser.add_argument("--model_seed", type=int, default=100)
-    parser.add_argument("--num_batches", type=int, default=-1)
-    parser.add_argument("--num_epochs", type=int, default=4)
-    parser.add_argument("--num_workers", type=int, default=0)
-    parser.add_argument("--num_eval_batches", type=int, default=-1)
+    parser.add_argument("--data_size", type=int, default=None)
+    parser.add_argument("--eval_every_n", type=int, default=None)
+    parser.add_argument("--report_every_n", type=int, default=None)
+    parser.add_argument("--save_every_n", type=int, default=None)
+    parser.add_argument("--keep_every_n", type=int, default=None)
+    parser.add_argument("--batch_size", type=int, default=None)
+    parser.add_argument("--eval_batch_size", type=int, default=None)
+    parser.add_argument("--eval_on_train", type=bool, default=None)
+    parser.add_argument("--eval_on_val", type=bool, default=None)
+    parser.add_argument("--data_seed", type=int, default=None)
+    parser.add_argument("--init_seed", type=int, default=None)
+    parser.add_argument("--model_seed", type=int, default=None)
+    parser.add_argument("--num_batches", type=int, default=None)
+    parser.add_argument("--num_epochs", type=int, default=None)
+    parser.add_argument("--num_workers", type=int, default=None)
+    parser.add_argument("--num_eval_batches", type=int, default=None)
 
     # gpu
+    parser.add_argument("--pin_memory", type=bool, default=True)
     parser.add_argument("--devices", nargs="+", default=[-1], type=int)
     # store/load model
     parser.add_argument("--save-model", type=str, default="")

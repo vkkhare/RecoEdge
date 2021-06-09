@@ -40,9 +40,10 @@ model :
 
 train :
   config:
-    batch_size : 32
+    batch_size : 128
     eval_batch_size : 256
-    num_workers : 20
+    eval_every_n : 1000
+    num_workers : 10
     # Seed for RNG used in shuffling the training data.
     data_seed : 100
     # Seed for RNG used in initializing the model.
