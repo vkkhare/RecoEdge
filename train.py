@@ -50,8 +50,7 @@ class TrainConfig:
     def merge_and_instantiate(cls, config, args):
         arg_dict = vars(args)
         del arg_dict['config']
-        stripped_dict = {k: v for k, v in arg_dict.items() if (
-            (k in config) and (v is not None))}
+        stripped_dict = {k: v for k, v in arg_dict.items() if (v is not None)}
         merged = {**config, **stripped_dict}
         return registry.instantiate(cls, merged)
 
@@ -127,7 +126,7 @@ class Trainer:
                     break
                 loader.set_description(f"Running {eval_section}")
 
-                inputs, true_labels = map_to_cuda(testBatch)
+                inputs, true_labels = map_to_cuda(testBatch,non_blocking=True)
 
                 # forward pass
                 Z_test = model(*inputs)
