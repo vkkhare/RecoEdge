@@ -145,7 +145,7 @@ class DLRM_Net(nn.Module):
                 self.v_W_l = w_list
 
             self.bot_l = self.create_mlp(self.ln_bot, sigmoid_bot)
-            self.top_l = self.create_mlp(arch_mlp_top, sigmoid_top)
+            self.top_l = self.create_mlp(self.ln_top, sigmoid_top)
 
             # specify the loss function
             if self.loss_function == "mse":
