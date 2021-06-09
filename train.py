@@ -14,10 +14,10 @@ from fedrec.utilities.serialization import dash_separated_floats
 
 @attr.s
 class TrainConfig:
-    eval_every_n = attr.ib(default=100)
+    eval_every_n = attr.ib(default=10000)
     report_every_n = attr.ib(default=10)
-    save_every_n = attr.ib(default=1000)
-    keep_every_n = attr.ib(default=1000)
+    save_every_n = attr.ib(default=2000)
+    keep_every_n = attr.ib(default=10000)
 
     batch_size = attr.ib(default=128)
     eval_batch_size = attr.ib(default=256)

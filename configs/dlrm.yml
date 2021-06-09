@@ -43,7 +43,7 @@ train :
     batch_size : 256
     eval_batch_size : 512
     eval_every_n : 10000
-    save_every_n : 10000
+    save_every_n : 5000
     num_workers : 10
     # Seed for RNG used in shuffling the training data.
     data_seed : 100

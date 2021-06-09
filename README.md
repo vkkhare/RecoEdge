@@ -86,7 +86,7 @@ There are two ways to adjust training hyper-parameters:
 - **Pass them as CLI argument** Good for non-persistent and dynamic settings like gpu device  
 
 *In case of conflict, CLI argument supercedes config file parameter.*
-For further reference, check out [training config flags]()
+For further reference, check out [training config flags](configs/flags.md)
 
 ## Model Architecture
 ### Adjusting DLRM model params 
@@ -107,7 +107,7 @@ model:
 ```
 
 ### Adding new models
-Model architecture can only be changed via `configs/*.yml` files. Every model declaration is tagged with appropriate and loaded into registry.
+Model architecture can only be changed via `configs/*.yml` files. Every model declaration is tagged with an appropriate name and loaded into registry.
 ```python
 @registry.load('model','<model_name>')
 class My_Model(torch.nn.Module):
