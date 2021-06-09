@@ -216,6 +216,7 @@ class Trainer:
                     batch_size=self.train_config.batch_size,
                     num_workers=self.train_config.num_workers,
                     pin_memory=self.train_config.pin_memory,
+                    persistent_workers=True,
                     shuffle=True,
                     drop_last=True), start_epoch=current_epoch)
 
@@ -223,6 +224,7 @@ class Trainer:
             train_data,
             pin_memory=self.train_config.pin_memory,
             num_workers=self.train_config.num_workers,
+            persistent_workers=True,
             batch_size=self.train_config.eval_batch_size)
 
         val_data = self.model_preproc.dataset('val')
@@ -230,6 +232,7 @@ class Trainer:
             val_data,
             num_workers=self.train_config.num_workers,
             pin_memory=self.train_config.pin_memory,
+            persistent_workers=True,
             batch_size=self.train_config.eval_batch_size)
 
         # 4. Start training loop
@@ -270,8 +273,8 @@ class Trainer:
 
                 # Compute and apply gradient
                 with self.model_random:
-                    optimizer.zero_grad()
                     input, true_label = map_to_cuda(batch, non_blocking=True)
+                    optimizer.zero_grad()
                     output = self.model(*input)
                     loss = self.model.loss(output, true_label)
                     loss.backward()

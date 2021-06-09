@@ -40,9 +40,10 @@ model :
 
 train :
   config:
-    batch_size : 128
-    eval_batch_size : 256
-    eval_every_n : 1000
+    batch_size : 256
+    eval_batch_size : 512
+    eval_every_n : 10000
+    save_every_n : 10000
     num_workers : 10
     # Seed for RNG used in shuffling the training data.
     data_seed : 100
@@ -60,6 +61,6 @@ train :
     
   lr_scheduler :
     name : "dlrm"
-    num_warmup_steps : 1000
-    decay_start_step : 2000
-    num_decay_steps : 1000
+    num_warmup_steps : 30000
+    decay_start_step : 150000
+    num_decay_steps : 150000
