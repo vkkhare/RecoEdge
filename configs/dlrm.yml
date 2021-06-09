@@ -7,7 +7,7 @@ model :
   arch_interaction_op : "dot"
   arch_interaction_itself : False
   sigmoid_bot : "relu"
-  sigmoid_top : "relu"
+  sigmoid_top : "sigmoid"
 
   loss_function: "mse"
   weighted_pooling: "learned"

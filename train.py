@@ -94,7 +94,7 @@ class Trainer:
         current_epoch = start_epoch
         while True:
             for batch in loader:
-                loader.set_description(f"Epoch {current_epoch}")
+                loader.set_description(f"Training Epoch {current_epoch}")
                 yield batch, current_epoch
             current_epoch += 1
 
@@ -157,7 +157,7 @@ class Trainer:
                 step,
             )
 
-        if best_auc_test is not None & results["roc_auc"] > best_auc_test:
+        if (best_auc_test is not None) and (results["roc_auc"] > best_auc_test):
             best_auc_test = results["roc_auc"]
             best_acc_test = results["accuracy"]
             logger.log(
