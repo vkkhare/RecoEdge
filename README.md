@@ -8,7 +8,7 @@ The repository refactors the [original code](https://github.com/facebookresearch
 ├── fedrec
 │   ├── datasets
 │   │   ├── criteo.py (Kaggle Dataset)
-|   |   └── criteo_processor.py (Pre-processing)
+│   │   └── criteo_processor.py (Pre-processing)
 │   │
 │   ├── modules
 │   │   ├── dlrm.py (DLRM pytorch module) 
@@ -38,7 +38,7 @@ The repository refactors the [original code](https://github.com/facebookresearch
 
 ```bash
 mkdir criteo; cd criteo
-wget 
+gdown https://drive.google.com/file/d/17K5ntN30LbMWJ2gHHSkwCGHEcAjShm2_
 tar -xf dac.tar.gz
 ```
 
@@ -46,10 +46,17 @@ Clone this repo and change the argument `datafile` in [configs/dlrm.yml](configs
 ```bash
 git clone https://github.com/NimbleEdge/fedDLRM
 ```
-
+```yml
+model :
+  name : 'dlrm'
+  ...
+  preproc :
+    datafile : "<Path to Criteo>/criteo/train.txt"
+ 
+```
 Install the dependencies with conda or pip
 ```bash
-conda create --name recsys python=3.8 --file requirements.txt
+conda create --name recsys python=3.8 --file conda_requirements.txt
 conda activate recsys
 ``` 
 
