@@ -90,13 +90,13 @@ class Trainer:
             self.model = self.model.cuda()
 
     @staticmethod
-    def _yield_batches_from_epochs(loader):
+    def _yield_batches_from_epochs(loader, start_epoch):
+        current_epoch = start_epoch
         while True:
-            new_epoch = 1
             for batch in loader:
-                yield batch, new_epoch
-                if new_epoch == 1:
-                    new_epoch = 0
+                loader.set_description(f"Epoch {current_epoch}")
+                yield batch, current_epoch
+            current_epoch += 1
 
     @staticmethod
     def eval_model(
@@ -208,7 +208,7 @@ class Trainer:
                     batch_size=self.train_config.batch_size,
                     num_workers=self.train_config.num_workers,
                     shuffle=True,
-                    drop_last=True))
+                    drop_last=True), start_epoch=current_epoch)
 
         train_eval_data_loader = self.model_preproc.data_loader(
             train_data,
@@ -228,14 +228,12 @@ class Trainer:
             dummy_input = map_to_cuda(next(iter(train_data_loader))[0])
             self.logger.add_graph(self.model, dummy_input[0])
 
-            for batch, new_epoch in train_data_loader:
-                current_epoch = new_epoch + current_epoch
+            for batch, current_epoch in train_data_loader:
                 # Quit if too long
                 if self.train_config.num_batches > 0 & last_step >= self.train_config.num_batches:
                     break
                 if self.train_config.num_epochs > 0 & current_epoch >= self.train_config.num_epochs:
                     break
-                train_data_loader.set_description(f"Epoch {current_epoch}")
 
                 # Evaluate model
                 if last_step % self.train_config.eval_every_n == 0:
@@ -281,7 +279,7 @@ class Trainer:
                 last_step += 1
                 # Run saver
                 if last_step % self.train_config.save_every_n == 0:
-                    saver.save(modeldir, last_step, current_epoch-1)
+                    saver.save(modeldir, last_step, current_epoch)
 
 
 def main():
