@@ -62,7 +62,7 @@ class Trainer:
         arg_dict = vars(args)
         del arg_dict["config"]
         self.train_config = registry.instantiate(
-            TrainConfig, config['train'], **arg_dict)
+            TrainConfig, config['train']['config'], **arg_dict)
         self.data_random = random_state.RandomContext(
             config.get("data_seed", None))
         self.model_random = random_state.RandomContext(
@@ -80,7 +80,8 @@ class Trainer:
 
             self.model = registry.instantiate(
                 modelCls, config['model'],
-                preprocessor=self.model_preproc
+                preprocessor=self.model_preproc,
+                unused_keys=('name', 'preproc')
             )
 
         if torch.cuda.is_available():
@@ -111,22 +112,23 @@ class Trainer:
         scores = []
         targets = []
         model.eval()
-        for i, testBatch in enumerate(loader):
-            # early exit if nbatches was set by the user and was exceeded
-            if num_eval_batches > 0 and i >= num_eval_batches:
-                break
-            loader.set_description(f"Running {eval_section}")
+        with torch.no_grad():
+            for i, testBatch in enumerate(loader):
+                # early exit if nbatches was set by the user and was exceeded
+                if num_eval_batches > 0 and i >= num_eval_batches:
+                    break
+                loader.set_description(f"Running {eval_section}")
 
-            inputs, true_labels = map_to_cuda(testBatch)
+                inputs, true_labels = map_to_cuda(testBatch)
 
-            # forward pass
-            Z_test = model(*inputs)
+                # forward pass
+                Z_test = model(*inputs)
 
-            S_test = Z_test.detach().cpu().numpy()  # numpy array
-            T_test = true_labels.detach().cpu().numpy()  # numpy array
-            
-            scores.append(S_test)
-            targets.append(T_test)
+                S_test = Z_test.detach().cpu().numpy()  # numpy array
+                T_test = true_labels.detach().cpu().numpy()  # numpy array
+
+                scores.append(S_test)
+                targets.append(T_test)
 
         model.train()
         scores = np.concatenate(scores, axis=0)
@@ -160,22 +162,21 @@ class Trainer:
         if (best_auc_test is not None) and (results["roc_auc"] > best_auc_test):
             best_auc_test = results["roc_auc"]
             best_acc_test = results["accuracy"]
-            logger.log(
-                "recall {:.4f}, precision {:.4f},".format(
-                    results["recall"],
-                    results["precision"],
-                )
-                + " f1 {:.4f}, ap {:.4f},".format(
-                    results["f1"], results["ap"]
-                )
-                + " auc {:.4f}, best auc {:.4f},".format(
-                    results["roc_auc"], best_auc_test
-                )
-                + " accuracy {:3.3f} %, best accuracy {:3.3f} %".format(
-                    results["accuracy"] * 100, best_acc_test * 100
-                ),
-                flush=True,
-            )
+            # logger.log(
+            #     "recall {:.4f}, precision {:.4f},".format(
+            #         results["recall"],
+            #         results["precision"],
+            #     )
+            #     + " f1 {:.4f}, ap {:.4f},".format(
+            #         results["f1"], results["ap"]
+            #     )
+            #     + " auc {:.4f}, best auc {:.4f},".format(
+            #         results["roc_auc"], best_auc_test
+            #     )
+            #     + " accuracy {:3.3f} %, best accuracy {:3.3f} %".format(
+            #         results["accuracy"] * 100, best_acc_test * 100
+            #     )
+            # )
             return True
 
         return False
@@ -255,7 +256,7 @@ class Trainer:
                                 best_acc_test=best_acc_test, best_auc_test=best_auc_test,
                                 step=last_step):
                             saver.save(modeldir, last_step,
-                                       current_epoch-1, is_best=True)
+                                       current_epoch, is_best=True)
 
                 # Compute and apply gradient
                 with self.model_random:
@@ -264,17 +265,15 @@ class Trainer:
                     output = self.model(*input)
                     loss = self.model.loss(output, true_label)
                     loss.backward()
-                    lr_scheduler.step()
                     optimizer.step()
+                    lr_scheduler.step()
 
                 # Report metrics
                 if last_step % self.train_config.report_every_n == 0:
-                    log_dict = {
-                        "Loss": loss.item(),
-                        "lr": lr_scheduler.get_lr(),
-                    }
-                    self.logger.add_scalars(
-                        'Train/', log_dict, global_step=last_step)
+                    self.logger.add_scalar(
+                        'Train/Loss', loss.item(), global_step=last_step)
+                    self.logger.add_scalar(
+                        'Train/LR',  lr_scheduler.last_lr[0], global_step=last_step)
 
                 last_step += 1
                 # Run saver

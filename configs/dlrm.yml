@@ -1,16 +1,16 @@
 model : 
   name : "dlrm"
   
-  arch_sparse_feature_size : 64
+  arch_sparse_feature_size : 16
   arch_mlp_bot : [13, 512, 256, 64, 16]
-  arch_mlp_top : [5476, 256, 1]
+  arch_mlp_top : [367, 256, 1]
   arch_interaction_op : "dot"
   arch_interaction_itself : False
   sigmoid_bot : "relu"
   sigmoid_top : "sigmoid"
 
   loss_function: "mse"
-  weighted_pooling: "learned"
+  # weighted_pooling: "learned"
   
   embedding_types:
     threshold : 100
@@ -39,8 +39,10 @@ model :
 
 
 train :
-    batch_size : 128
-    eval_batch_size : 512
+  config:
+    batch_size : 32
+    eval_batch_size : 256
+    num_workers : 20
     # Seed for RNG used in shuffling the training data.
     data_seed : 100
     # Seed for RNG used in initializing the model.
@@ -49,14 +51,14 @@ train :
     # Only relevant with internal randomness in the model, e.g. with dropout.
     model_seed : 100
 
-    num_workers : 20
 
-    optimizer :
-      name : "sparse_adam"
-      lr : 0.1
+  optimizer :
+    name : "sgd"
+    momentum : 0.9
+    lr : 0.01
     
-    lr_scheduler :
-      name : "dlrm"
-      num_warmup_steps : 1000
-      decay_start_step : 2000
-      num_decay_steps : 1000
+  lr_scheduler :
+    name : "dlrm"
+    num_warmup_steps : 1000
+    decay_start_step : 2000
+    num_decay_steps : 1000

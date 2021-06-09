@@ -84,10 +84,11 @@ class EmbeddingBag(nn.EmbeddingBag):
                          include_last_offset=include_last_offset)
         if init:
             # initialize embeddings
-            W = np.random.uniform(
-                low=-np.sqrt(1 / num_embeddings), high=np.sqrt(1 / num_embeddings),
-                size=(num_embeddings, embedding_dim)).astype(np.float32)
-            self.weight.data = torch.tensor(W, requires_grad=True)
+            with torch.no_grad():
+                W = np.random.uniform(
+                    low=-np.sqrt(1 / num_embeddings), high=np.sqrt(1 / num_embeddings),
+                    size=(num_embeddings, embedding_dim)).astype(np.float32)
+                self.weight = Parameter(torch.tensor(W, requires_grad=True))
 
 
 @registry.load("embedding", "pr_emb")
@@ -113,13 +114,14 @@ class PrEmbeddingBag(nn.Module):
             )
 
         if init:
-            # use np initialization as below for consistency...
-            W = np.random.uniform(
-                low=-np.sqrt(1 / num_embeddings),
-                high=np.sqrt(1 / num_embeddings),
-                size=(num_embeddings, embedding_dim)
-            ).astype(np.float32)
-            self.embs.weight.data = torch.tensor(W, requires_grad=True)
+            with torch.no_grad():
+                # use np initialization as below for consistency...
+                W = np.random.uniform(
+                    low=-np.sqrt(1 / num_embeddings),
+                    high=np.sqrt(1 / num_embeddings),
+                    size=(num_embeddings, embedding_dim)
+                ).astype(np.float32)
+                self.embs.weight = Parameter(torch.tensor(W, requires_grad=True))
 
     def forward(self, input, offsets=None, per_sample_weights=None):
         return self.proj(self.embs(

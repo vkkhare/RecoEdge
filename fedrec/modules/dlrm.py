@@ -12,19 +12,18 @@ from torch.nn.parameter import Parameter
 
 def xavier_init(layer: nn.Linear):
     # initialize the weights
-    # with torch.no_grad():
+    with torch.no_grad():
     # custom Xavier input, output or two-sided fill
-    mean = 0.0
-    std_dev = np.sqrt(2 / (layer.out_features + layer.in_features))
-    W = np.random.normal(mean, std_dev, size=(
-        layer.out_features, layer.in_features)).astype(np.float32)
-    std_dev = np.sqrt(1 / layer.out_features)  # np.sqrt(2 / (m + 1))
-    bt = np.random.normal(
-        mean, std_dev, size=layer.out_features).astype(np.float32)
-    # approach 1
-    layer.weight.data = torch.tensor(W, requires_grad=True)
-    layer.bias.data = torch.tensor(bt, requires_grad=True)
-    return layer
+        mean = 0.0
+        std_dev = np.sqrt(2 / (layer.out_features + layer.in_features))
+        W = np.random.normal(mean, std_dev, size=(
+            layer.out_features, layer.in_features)).astype(np.float32)
+        std_dev = np.sqrt(1 / layer.out_features)  # np.sqrt(2 / (m + 1))
+        bt = np.random.normal(
+            mean, std_dev, size=layer.out_features).astype(np.float32)
+        layer.weight.set_(torch.tensor(W))
+        layer.bias.set_(torch.tensor(bt))
+        return layer
 ### define dlrm in PyTorch ###
 
 
