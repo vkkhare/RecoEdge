@@ -165,7 +165,7 @@ class Trainer:
         for metric_name, metric_function in metrics_dict.items():
             results[metric_name] = metric_function(targets, scores)
             logger.add_scalar(
-                "mlperf-metrics/" + eval_section + "/" + metric_name,
+                eval_section + "/" +"mlperf-metrics/" + metric_name,
                 results[metric_name],
                 step,
             )
@@ -297,9 +297,9 @@ class Trainer:
                 if last_step % self.train_config.report_every_n == 0:
                     t_loader.set_postfix({'loss': loss.item()})
                     self.logger.add_scalar(
-                        'Train/Loss', loss.item(), global_step=last_step)
+                        'train/loss', loss.item(), global_step=last_step)
                     self.logger.add_scalar(
-                        'Train/LR',  lr_scheduler.last_lr[0], global_step=last_step)
+                        'train/lr',  lr_scheduler.last_lr[0], global_step=last_step)
                     if self.train_config.log_gradients:
                         self.logger.log_gradients(self.model, last_step)
 

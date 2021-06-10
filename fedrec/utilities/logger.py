@@ -14,7 +14,7 @@ class TBLogger(SummaryWriter):
         for name, param in model.named_parameters():
             if to_normalize:
                 grad = param.grad.norm()
-                self.add_scalar(name, grad, global_step=step)
+                self.add_scalar("grads/"+name, grad, global_step=step)
             else:
                 grad = param.grad
-                self.add_histogram(name, grad, global_step=step)
+                self.add_histogram("grads/"+name, grad, global_step=step)
