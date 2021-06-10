@@ -70,7 +70,7 @@ class DLRM_Net(nn.Module):
     def __init__(
         self,
         preprocessor: DLRMPreprocessor,
-        arch_sparse_feature_size=None,
+        arch_feature_emb_size=None,
         arch_mlp_bot=None,
         arch_mlp_top=None,
         arch_interaction_op=None,
@@ -88,7 +88,7 @@ class DLRM_Net(nn.Module):
         self.preproc = preprocessor
 
         if (
-            (arch_sparse_feature_size is not None)
+            (arch_feature_emb_size is not None)
             and (self.preproc.ln_emb is not None)
             and (arch_mlp_bot is not None)
             and (arch_mlp_top is not None)
@@ -97,9 +97,9 @@ class DLRM_Net(nn.Module):
 
             # save arguments
             self.ndevices = ndevices
-            self.m_spa = arch_sparse_feature_size
+            self.m_spa = arch_feature_emb_size
             self.ln_emb = self.preproc.ln_emb
-            self.ln_bot = arch_mlp_bot
+            self.ln_bot = arch_mlp_bot + [self.m_spa]
             self.output_d = 0
             self.parallel_model_batch_size = -1
             self.parallel_model_is_not_prepared = True
@@ -118,8 +118,14 @@ class DLRM_Net(nn.Module):
             if arch_interaction_op == "dot":
                 if arch_interaction_itself:
                     num_int = (num_fea * (num_fea + 1)) // 2 + self.ln_bot[-1]
+                    offset = 1
                 else:
                     num_int = (num_fea * (num_fea - 1)) // 2 + self.ln_bot[-1]
+                    offset = 0
+                self.index_tensor_i = torch.tensor([i for i in range(num_fea)
+                              for j in range(i + offset)])
+                self.index_tensor_j = torch.tensor([j for i in range(num_fea)
+                              for j in range(i + offset)])
             elif arch_interaction_op == "cat":
                 num_int = num_fea * self.ln_bot[-1]
             else:
@@ -225,13 +231,7 @@ class DLRM_Net(nn.Module):
             T = torch.cat([x] + ly, dim=1).view((batch_size, -1, d))
             # perform a dot product
             Z = torch.bmm(T, torch.transpose(T, 1, 2))
-            _, ni, nj = Z.shape
-            offset = 1 if self.arch_interaction_itself else 0
-            li = torch.tensor([i for i in range(ni)
-                              for j in range(i + offset)])
-            lj = torch.tensor([j for i in range(nj)
-                              for j in range(i + offset)])
-            Zflat = Z[:, li, lj]
+            Zflat = Z[:, self.index_tensor_i, self.index_tensor_j]
             # concatenate dense features and interactions
             R = torch.cat([x] + [Zflat], dim=1)
         elif self.arch_interaction_op == "cat":
