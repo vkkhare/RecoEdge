@@ -274,9 +274,9 @@ class Trainer:
                 # Compute and apply gradient
                 with self.model_random:
                     input, true_label = map_to_cuda(batch, non_blocking=True)
-                    optimizer.zero_grad()
                     output = self.model(*input)
                     loss = self.model.loss(output, true_label)
+                    optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
                     lr_scheduler.step()
@@ -308,7 +308,7 @@ def main():
     )  # for wbce
     parser.add_argument("--loss-threshold", type=float,
                         default=0.0)  # 1.0e-7
-    parser.add_argument("--round-targets", type=bool, default=False)
+    parser.add_argument("--round_targets",  dest='round_targets', action='store_true')
 
     # train Config
     parser.add_argument("--data_size", type=int, default=None)
@@ -318,8 +318,8 @@ def main():
     parser.add_argument("--keep_every_n", type=int, default=None)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--eval_batch_size", type=int, default=None)
-    parser.add_argument("--eval_on_train", type=bool, default=None)
-    parser.add_argument("--eval_on_val", type=bool, default=None)
+    parser.add_argument('--eval_on_train', dest='eval_on_train', action='store_true')
+    parser.add_argument('--no_eval_on_val', dest='eval_on_val', action='store_false')
     parser.add_argument("--data_seed", type=int, default=None)
     parser.add_argument("--init_seed", type=int, default=None)
     parser.add_argument("--model_seed", type=int, default=None)
@@ -329,11 +329,13 @@ def main():
     parser.add_argument("--num_eval_batches", type=int, default=None)
 
     # gpu
-    parser.add_argument("--pin_memory", type=bool, default=True)
+    parser.add_argument('--pin_memory', dest='pin_memory', action='store_true')
     parser.add_argument("--devices", nargs="+", default=[-1], type=int)
     # store/load model
     parser.add_argument("--save-model", type=str, default="")
     parser.add_argument("--load-model", type=str, default="")
+
+    parser.set_defaults(eval_on_train=None, eval_on_val=None, pin_memory=None, round_targets=False)
     args = parser.parse_args()
 
     with open(args.config, 'r') as stream:

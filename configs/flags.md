@@ -9,7 +9,7 @@
 | --batch_size   | Training batch size        |
 | --eval_batch_size   | Testing batch size        |
 | --eval_on_train   | Evaluate valdition metrics on Training data?        |
-| --eval_on_val   | Run validation tests during training for early stopping?        |
+| --no_eval_on_val   | Do not run validation tests during training?        |
 | --data_seed   | Seed for random number generator in data loading        |
 | --init_seed   | Seed for random number generator during pytorch layers' initialization        |
 | --model_seed   | Seed for random number generator for models        |

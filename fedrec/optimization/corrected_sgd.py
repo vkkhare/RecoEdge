@@ -13,7 +13,6 @@ class _RequiredParameter(object):
 required = _RequiredParameter()
 
 ## Correcting SGD for sparse operations
-@torch.no_grad()
 def sgd(params: List[Tensor],
         d_p_list: List[Tensor],
         momentum_buffer_list: List[Optional[Tensor]],
@@ -37,10 +36,11 @@ def sgd(params: List[Tensor],
             buf = momentum_buffer_list[i]
 
             if buf is None:
-                buf = torch.clone(d_p)
+                buf = torch.clone(d_p).detach()
                 momentum_buffer_list[i] = buf
             else:
-                buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
+                buf = buf.mul(momentum)
+                buf = buf.add(d_p, alpha=1 - dampening)
 
             if nesterov:
                 d_p = d_p.add(buf, alpha=momentum)
