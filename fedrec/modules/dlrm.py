@@ -1,19 +1,19 @@
 import abc
-from tkinter.constants import NO
-from fedrec.preprocessor import DLRMPreprocessor
 import sys
 
 import numpy as np
 import torch
+from fedrec.preprocessor import DLRMPreprocessor
 from fedrec.utilities import registry
 from torch import nn
+from torch.nn.functional import sigmoid
 from torch.nn.parameter import Parameter
 
 
 def xavier_init(layer: nn.Linear):
     # initialize the weights
     with torch.no_grad():
-    # custom Xavier input, output or two-sided fill
+        # custom Xavier input, output or two-sided fill
         mean = 0.0
         std_dev = np.sqrt(2 / (layer.out_features + layer.in_features))
         W = np.random.normal(mean, std_dev, size=(
@@ -40,10 +40,10 @@ class DLRM_Net(nn.Module):
 
     def create_mlp(self, ln, sigmoid_layer):
         # build MLP layer by layer
-        layers = []
-        for in_f, out_f in zip(ln, ln[1:]):
-            layers += [xavier_init(nn.Linear(in_f, out_f, True)),
-                       registry.construct('sigmoid_layer', {'name': sigmoid_layer})]
+        layers = [xavier_init(nn.Linear(ln[0], ln[1], True))]
+        for in_f, out_f in zip(ln[1:], ln[2:]):
+            layers += [registry.construct('sigmoid_layer', {'name': sigmoid_layer}),
+                       xavier_init(nn.Linear(in_f, out_f, True))]
         return torch.nn.Sequential(*layers)
 
     def create_emb(self, m, ln, emb_dict, weighted_pooling=None):
@@ -123,9 +123,9 @@ class DLRM_Net(nn.Module):
                     num_int = (num_fea * (num_fea - 1)) // 2 + self.ln_bot[-1]
                     offset = 0
                 self.index_tensor_i = torch.tensor([i for i in range(num_fea)
-                              for j in range(i + offset)])
+                                                    for j in range(i + offset)])
                 self.index_tensor_j = torch.tensor([j for i in range(num_fea)
-                              for j in range(i + offset)])
+                                                    for j in range(i + offset)])
             elif arch_interaction_op == "cat":
                 num_int = num_fea * self.ln_bot[-1]
             else:
@@ -157,15 +157,11 @@ class DLRM_Net(nn.Module):
             if self.loss_function == "mse":
                 self.loss_fn = torch.nn.MSELoss(reduction="mean")
             elif self.loss_function == "bce":
-                self.loss_fn = torch.nn.BCELoss(reduction="mean")
-            elif self.loss_function == "wbce":
-                self.loss_ws = torch.tensor(
-                    np.fromstring(loss_weights, dtype=float, sep="-")
-                )
-                self.loss_fn = torch.nn.BCELoss(reduction="none")
+                self.loss_fn = torch.nn.BCEWithLogitsLoss(
+                    reduction="mean", pos_weight=loss_weights)
             else:
                 sys.exit(
-                    "ERROR: --loss-function=" + self.loss_function + " is not supported"
+                    "ERROR: --loss_function=" + self.loss_function + " is not supported"
                 )
 
     def toGPU(self):
@@ -258,12 +254,11 @@ class DLRM_Net(nn.Module):
                               max=(1.0 - self.loss_threshold))
         return out
 
+    def get_scores(output):
+        return sigmoid(output)
+
     def loss(self, output, true_label):
-        if self.loss_function == "mse" or self.loss_function == "bce":
+        if self.loss_function == "mse":
+            return self.loss_fn(self.get_scores(output), true_label)
+        elif self.loss_function == "bce":
             return self.loss_fn(output, true_label)
-        elif self.loss_function == "wbce":
-            loss_ws_ = self.loss_ws[true_label.data.view(
-                -1).long()].view_as(true_label)
-            loss_fn_ = self.loss_fn(output, true_label)
-            loss_sc_ = loss_ws_ * loss_fn_
-            return loss_sc_.mean()

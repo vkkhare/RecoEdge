@@ -1,14 +1,15 @@
 from argparse import ArgumentParser
-from fedrec.utilities.cuda_utils import map_to_cuda
-from fedrec.utilities.logger import TBLogger
 
+import attr
 import numpy as np
 import torch
 import yaml
 from sklearn import metrics
-import attr
+
 from fedrec.utilities import random_state, registry
 from fedrec.utilities import saver_utils as saver_mod
+from fedrec.utilities.cuda_utils import map_to_cuda
+from fedrec.utilities.logger import TBLogger
 from fedrec.utilities.serialization import dash_separated_floats
 
 
@@ -126,7 +127,7 @@ class Trainer:
                     break
                 loader.set_description(f"Running {eval_section}")
 
-                inputs, true_labels = map_to_cuda(testBatch,non_blocking=True)
+                inputs, true_labels = map_to_cuda(testBatch, non_blocking=True)
 
                 # forward pass
                 Z_test = model(*inputs)
@@ -301,14 +302,12 @@ def main():
 
     parser.add_argument("--weighted-pooling", type=str, default=None)
     # activations and loss
-    parser.add_argument("--loss-function", type=str,
-                        default="mse")  # or bce or wbce
-    parser.add_argument(
-        "--loss-weights", type=dash_separated_floats, default="1.0-1.0"
-    )  # for wbce
-    parser.add_argument("--loss-threshold", type=float,
+    parser.add_argument("--loss_function", type=str, default="mse")
+    parser.add_argument("--loss_weights", type=float, default=None)  # for wbce
+    parser.add_argument("--loss_threshold", type=float,
                         default=0.0)  # 1.0e-7
-    parser.add_argument("--round_targets",  dest='round_targets', action='store_true')
+    parser.add_argument("--round_targets",
+                        dest='round_targets', action='store_true')
 
     # train Config
     parser.add_argument("--data_size", type=int, default=None)
@@ -318,8 +317,10 @@ def main():
     parser.add_argument("--keep_every_n", type=int, default=None)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--eval_batch_size", type=int, default=None)
-    parser.add_argument('--eval_on_train', dest='eval_on_train', action='store_true')
-    parser.add_argument('--no_eval_on_val', dest='eval_on_val', action='store_false')
+    parser.add_argument('--eval_on_train',
+                        dest='eval_on_train', action='store_true')
+    parser.add_argument('--no_eval_on_val',
+                        dest='eval_on_val', action='store_false')
     parser.add_argument("--data_seed", type=int, default=None)
     parser.add_argument("--init_seed", type=int, default=None)
     parser.add_argument("--model_seed", type=int, default=None)
@@ -335,7 +336,8 @@ def main():
     parser.add_argument("--save-model", type=str, default="")
     parser.add_argument("--load-model", type=str, default="")
 
-    parser.set_defaults(eval_on_train=None, eval_on_val=None, pin_memory=None, round_targets=False)
+    parser.set_defaults(eval_on_train=None, eval_on_val=None,
+                        pin_memory=None, round_targets=False)
     args = parser.parse_args()
 
     with open(args.config, 'r') as stream:
