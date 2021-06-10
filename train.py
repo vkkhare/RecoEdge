@@ -130,7 +130,7 @@ class Trainer:
                 inputs, true_labels = map_to_cuda(testBatch, non_blocking=True)
 
                 # forward pass
-                Z_test = model(*inputs)
+                Z_test = model.get_scores(model(*inputs))
 
                 S_test = Z_test.detach().cpu().numpy()  # numpy array
                 T_test = true_labels.detach().cpu().numpy()  # numpy array

@@ -7,10 +7,10 @@ model :
   arch_interaction_op : "dot"
   arch_interaction_itself : False
   sigmoid_bot : "relu"
-  sigmoid_top : "sigmoid"
+  sigmoid_top : "relu"
 
   loss_function: "bce"
-  weighted_pooling: "learned"
+  # weighted_pooling: "learned"
   
   embedding_types:
     threshold : 100
@@ -57,7 +57,7 @@ train :
   optimizer :
     name : "sgd"
     momentum : 0.9
-    lr : 0.01
+    lr : 0.005
     
   lr_scheduler :
     name : "dlrm"

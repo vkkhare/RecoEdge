@@ -5,8 +5,7 @@ import numpy as np
 import torch
 from fedrec.preprocessor import DLRMPreprocessor
 from fedrec.utilities import registry
-from torch import nn
-from torch.nn.functional import sigmoid
+from torch import nn, sigmoid
 from torch.nn.parameter import Parameter
 
 
@@ -254,11 +253,11 @@ class DLRM_Net(nn.Module):
                               max=(1.0 - self.loss_threshold))
         return out
 
-    def get_scores(output):
-        return sigmoid(output)
+    def get_scores(self, logits):
+        return sigmoid(logits)
 
-    def loss(self, output, true_label):
+    def loss(self, logits, true_label):
         if self.loss_function == "mse":
-            return self.loss_fn(self.get_scores(output), true_label)
+            return self.loss_fn(self.get_scores(logits), true_label)
         elif self.loss_function == "bce":
-            return self.loss_fn(output, true_label)
+            return self.loss_fn(logits, true_label)
