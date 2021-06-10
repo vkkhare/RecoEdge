@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import attr
 import numpy as np
 import torch
+from tqdm import tqdm
 import yaml
 from sklearn import metrics
 
@@ -10,7 +11,6 @@ from fedrec.utilities import random_state, registry
 from fedrec.utilities import saver_utils as saver_mod
 from fedrec.utilities.cuda_utils import map_to_cuda
 from fedrec.utilities.logger import TBLogger
-from fedrec.utilities.serialization import dash_separated_floats
 
 
 @attr.s
@@ -103,7 +103,6 @@ class Trainer:
         current_epoch = start_epoch
         while True:
             for batch in loader:
-                loader.set_description(f"Training Epoch {current_epoch}")
                 yield batch, current_epoch
             current_epoch += 1
 
@@ -120,12 +119,14 @@ class Trainer:
         scores = []
         targets = []
         model.eval()
+        total_len = num_eval_batches if num_eval_batches > 0 else len(loader)
         with torch.no_grad():
-            for i, testBatch in enumerate(loader):
+            t_loader = tqdm(enumerate(loader), unit="batch", total=total_len)
+            for i, testBatch in t_loader:
                 # early exit if nbatches was set by the user and was exceeded
-                if num_eval_batches > 0 and i >= num_eval_batches:
+                if (num_eval_batches is not None) and (i >= num_eval_batches):
                     break
-                loader.set_description(f"Running {eval_section}")
+                t_loader.set_description(f"Running {eval_section}")
 
                 inputs, true_labels = map_to_cuda(testBatch, non_blocking=True)
 
@@ -220,6 +221,10 @@ class Trainer:
                     persistent_workers=True,
                     shuffle=True,
                     drop_last=True), start_epoch=current_epoch)
+            if self.train_config.num_batches > 0:
+                total_train_len = self.train_config.num_batches 
+            else :
+                total_train_len = len(train_data_loader)
 
         train_eval_data_loader = self.model_preproc.data_loader(
             train_data,
@@ -242,8 +247,10 @@ class Trainer:
             best_auc_test = 0
             dummy_input = map_to_cuda(next(iter(train_data_loader))[0])
             self.logger.add_graph(self.model, dummy_input[0])
+            t_loader = tqdm(train_data_loader, unit='batch', total=total_train_len)
+            for batch, current_epoch in t_loader:
+                t_loader.set_description(f"Training Epoch {current_epoch}")
 
-            for batch, current_epoch in train_data_loader:
                 # Quit if too long
                 if self.train_config.num_batches > 0 & last_step >= self.train_config.num_batches:
                     break
@@ -270,11 +277,12 @@ class Trainer:
                                 best_acc_test=best_acc_test, best_auc_test=best_auc_test,
                                 step=last_step):
                             saver.save(modeldir, last_step,
-                                       current_epoch, is_best=True)
+                                        current_epoch, is_best=True)
 
                 # Compute and apply gradient
                 with self.model_random:
-                    input, true_label = map_to_cuda(batch, non_blocking=True)
+                    input, true_label = map_to_cuda(
+                        batch, non_blocking=True)
                     output = self.model(*input)
                     loss = self.model.loss(output, true_label)
                     optimizer.zero_grad()
@@ -284,6 +292,7 @@ class Trainer:
 
                 # Report metrics
                 if last_step % self.train_config.report_every_n == 0:
+                    t_loader.set_postfix({'loss': loss.item()})
                     self.logger.add_scalar(
                         'Train/Loss', loss.item(), global_step=last_step)
                     self.logger.add_scalar(
@@ -302,7 +311,7 @@ def main():
 
     parser.add_argument("--weighted-pooling", type=str, default=None)
     # activations and loss
-    parser.add_argument("--loss_function", type=str, default="mse")
+    parser.add_argument("--loss_function", type=str, default=None)
     parser.add_argument("--loss_weights", type=float, default=None)  # for wbce
     parser.add_argument("--loss_threshold", type=float,
                         default=0.0)  # 1.0e-7

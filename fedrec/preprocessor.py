@@ -34,7 +34,6 @@ class DLRMPreprocessor:
     def dataset(self, split):
         return self.dataset_processor.dataset(split)
 
-    @logger.tqdm_wrapper
     def data_loader(self, data, **kwargs):
         return torch.utils.data.DataLoader(
             data, collate_fn=self.dataset_processor.collate_fn, **kwargs

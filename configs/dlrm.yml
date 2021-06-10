@@ -1,8 +1,8 @@
 model : 
   name : "dlrm"
   
-  arch_feature_emb_size : 64
-  arch_mlp_bot : [13, 512, 256]
+  arch_feature_emb_size : 16
+  arch_mlp_bot : [13, 512, 256, 64]
   arch_mlp_top : [512, 256, 1]
   arch_interaction_op : "dot"
   arch_interaction_itself : False
@@ -40,7 +40,7 @@ model :
 
 train :
   config:
-    batch_size : 256
+    batch_size : 128
     eval_batch_size : 512
     eval_every_n : 10000
     save_every_n : 5000
@@ -57,7 +57,7 @@ train :
   optimizer :
     name : "sgd"
     momentum : 0.9
-    lr : 0.005
+    lr : 0.0001
     
   lr_scheduler :
     name : "dlrm"

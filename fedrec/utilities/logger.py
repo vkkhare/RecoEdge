@@ -7,11 +7,5 @@ class TBLogger(SummaryWriter):
                          comment=comment,
                          max_queue=max_queue)
 
-    def log(*args,**kwargs):
+    def log(self, *args,**kwargs):
         print(*args,**kwargs)
-
-
-def tqdm_wrapper(iterable_generator):
-    def wrapped_generator(*args, **kwargs):
-        return tqdm(iterable_generator(*args,**kwargs), unit="batch")
-    return wrapped_generator
