@@ -13,6 +13,12 @@ from fedrec.utilities.cuda_utils import map_to_cuda
 from fedrec.utilities.logger import TBLogger
 
 
+def merge_config_and_args(config, args):
+    arg_dict = vars(args)
+    stripped_dict = {k: v for k, v in arg_dict.items() if (v is not None)}
+    return {**config, **stripped_dict}
+
+
 @attr.s
 class TrainConfig:
     eval_every_n = attr.ib(default=10000)
@@ -39,6 +45,8 @@ class TrainConfig:
     num_workers = attr.ib(default=0)
     pin_memory = attr.ib(default=True)
 
+    log_gradients = attr.ib(default=False)
+
     # Seed for RNG used in shuffling the training data.
     data_seed = attr.ib(default=100)
     # Seed for RNG used in initializing the model.
@@ -46,14 +54,6 @@ class TrainConfig:
     # Seed for RNG used in computing the model's training loss.
     # Only relevant with internal randomness in the model, e.g. with dropout.
     model_seed = attr.ib(default=100)
-
-    @classmethod
-    def merge_and_instantiate(cls, config, args):
-        arg_dict = vars(args)
-        del arg_dict['config']
-        stripped_dict = {k: v for k, v in arg_dict.items() if (v is not None)}
-        merged = {**config, **stripped_dict}
-        return registry.instantiate(cls, merged)
 
 
 class Trainer:
@@ -69,8 +69,10 @@ class Trainer:
 
         self.log_dir = args.logdir
         self.logger = logger
-        self.train_config = TrainConfig.merge_and_instantiate(
-            config['train']['config'], args)
+        self.train_config = registry.instantiate(
+            TrainConfig,
+            merge_config_and_args(config['train']['config'], args)
+        )
         self.data_random = random_state.RandomContext(
             config.get("data_seed", None))
         self.model_random = random_state.RandomContext(
@@ -212,20 +214,20 @@ class Trainer:
         # 3. Get training data somewhere
         with self.data_random:
             train_data = self.model_preproc.dataset('train')
-            train_data_loader = self._yield_batches_from_epochs(
-                self.model_preproc.data_loader(
-                    train_data,
-                    batch_size=self.train_config.batch_size,
-                    num_workers=self.train_config.num_workers,
-                    pin_memory=self.train_config.pin_memory,
-                    persistent_workers=True,
-                    shuffle=True,
-                    drop_last=True), start_epoch=current_epoch)
+            train_data_loader = self.model_preproc.data_loader(
+                train_data,
+                batch_size=self.train_config.batch_size,
+                num_workers=self.train_config.num_workers,
+                pin_memory=self.train_config.pin_memory,
+                persistent_workers=True,
+                shuffle=True,
+                drop_last=True)
             if self.train_config.num_batches > 0:
-                total_train_len = self.train_config.num_batches 
-            else :
+                total_train_len = self.train_config.num_batches
+            else:
                 total_train_len = len(train_data_loader)
-
+            train_data_loader = self._yield_batches_from_epochs(
+                train_data_loader, start_epoch=current_epoch)
         train_eval_data_loader = self.model_preproc.data_loader(
             train_data,
             pin_memory=self.train_config.pin_memory,
@@ -247,7 +249,8 @@ class Trainer:
             best_auc_test = 0
             dummy_input = map_to_cuda(next(iter(train_data_loader))[0])
             self.logger.add_graph(self.model, dummy_input[0])
-            t_loader = tqdm(train_data_loader, unit='batch', total=total_train_len)
+            t_loader = tqdm(train_data_loader, unit='batch',
+                            total=total_train_len)
             for batch, current_epoch in t_loader:
                 t_loader.set_description(f"Training Epoch {current_epoch}")
 
@@ -277,7 +280,7 @@ class Trainer:
                                 best_acc_test=best_acc_test, best_auc_test=best_auc_test,
                                 step=last_step):
                             saver.save(modeldir, last_step,
-                                        current_epoch, is_best=True)
+                                       current_epoch, is_best=True)
 
                 # Compute and apply gradient
                 with self.model_random:
@@ -297,6 +300,8 @@ class Trainer:
                         'Train/Loss', loss.item(), global_step=last_step)
                     self.logger.add_scalar(
                         'Train/LR',  lr_scheduler.last_lr[0], global_step=last_step)
+                    if self.train_config.log_gradients:
+                        self.logger.log_gradients(self.model, last_step)
 
                 last_step += 1
                 # Run saver
@@ -337,16 +342,19 @@ def main():
     parser.add_argument("--num_epochs", type=int, default=None)
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--num_eval_batches", type=int, default=None)
-
+    
+    
+    parser.add_argument('--log_gradients',
+                        dest='log_gradients', action='store_true')
     # gpu
     parser.add_argument('--pin_memory', dest='pin_memory', action='store_true')
-    parser.add_argument("--devices", nargs="+", default=[-1], type=int)
+    parser.add_argument("--devices", nargs="+", default=None, type=int)
     # store/load model
-    parser.add_argument("--save-model", type=str, default="")
-    parser.add_argument("--load-model", type=str, default="")
+    parser.add_argument("--save-model", type=str, default=None)
+    parser.add_argument("--load-model", type=str, default=None)
 
     parser.set_defaults(eval_on_train=None, eval_on_val=None,
-                        pin_memory=None, round_targets=False)
+                        pin_memory=None, round_targets=False, log_gradients=None)
     args = parser.parse_args()
 
     with open(args.config, 'r') as stream:
