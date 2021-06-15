@@ -9,3 +9,9 @@ def map_to_cuda(args, device=None, **kwargs):
         return args.cuda(device, **kwargs)
     else :
         raise TypeError("unsupported type for cuda migration")
+
+
+def map_to_list(model_params):
+    for k in model_params.keys():
+        model_params[k] = model_params[k].detach().numpy().tolist()
+    return model_params
