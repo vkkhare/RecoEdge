@@ -1,19 +1,17 @@
 
-from fedrec.utilities.cuda_utils import map_to_cuda
+from fedrec.preprocessor import PreProcessor
+from typing import Dict
+
 import attr
 import numpy as np
 import torch
-from tqdm import tqdm
-from sklearn import metrics
-
 from fedrec.utilities import random_state, registry
 from fedrec.utilities import saver_utils as saver_mod
+from fedrec.utilities.cuda_utils import map_to_cuda
+from fedrec.utilities.logger import BaseLogger
+from sklearn import metrics
+from tqdm import tqdm
 
-
-def merge_config_and_args(config, args):
-    arg_dict = vars(args)
-    stripped_dict = {k: v for k, v in arg_dict.items() if (v is not None)}
-    return {**config, **stripped_dict}
 
 @attr.s
 class TrainConfig:
@@ -53,33 +51,38 @@ class TrainConfig:
 
 
 class Trainer:
-    def __init__(self, args, config) -> None:
-        self.log_dir = args.logdir
-        self.train_config = registry.instantiate(
-            TrainConfig,
-            merge_config_and_args(config['train']['config'], args)
-        )
+    def __init__(self,
+                 config_dict: Dict,
+                 train_config: TrainConfig,
+                 model_preproc: PreProcessor,
+                 logger: BaseLogger) -> None:
+        self.logger = logger
+        self.model_preproc = model_preproc
+        self.train_config = train_config
         self.data_random = random_state.RandomContext(
-            config.get("data_seed", None))
+            config_dict.get("data_seed", None))
         self.model_random = random_state.RandomContext(
-            config.get("model_seed", None))
+            config_dict.get("model_seed", None))
         self.init_random = random_state.RandomContext(
-            config.get("init_seed", None))
+            config_dict.get("init_seed", None))
 
         with self.model_random:
             # 1. Construct model
-            modelCls = registry.lookup('model', config['model'])
-            self.model_preproc = registry.instantiate(
-                modelCls.Preproc,
-                config['model']['preproc'])
-            self.model_preproc.load()
-
-            self.model = registry.instantiate(
-                modelCls, config['model'],
+            self.model = registry.construct(
+                'model', config_dict['model'],
                 preprocessor=self.model_preproc,
                 unused_keys=('name', 'preproc')
             )
+            if torch.cuda.is_available():
+                self.model.cuda()
 
+    @staticmethod
+    def _yield_batches_from_epochs(loader, start_epoch):
+        current_epoch = start_epoch
+        while True:
+            for batch in loader:
+                yield batch, current_epoch
+            current_epoch += 1
 
     @staticmethod
     def eval_model(
@@ -138,7 +141,7 @@ class Trainer:
         for metric_name, metric_function in metrics_dict.items():
             results[metric_name] = metric_function(targets, scores)
             logger.add_scalar(
-                eval_section + "/" +"mlperf-metrics/" + metric_name,
+                eval_section + "/" + "mlperf-metrics/" + metric_name,
                 results[metric_name],
                 step,
             )
@@ -150,11 +153,91 @@ class Trainer:
 
         return False
 
-    
-    def get_data_loaders(self):
+    def train(self, config, modeldir, datasets):
+        optimizer = self.get_optimizer(config)
+        saver = self.get_saver(optimizer)
+        last_step, current_epoch = saver.restore(modeldir)
+        lr_scheduler = self.get_scheduler(
+            config, optimizer, last_epoch=last_step)
+
+        train_dl, train_eval_dl, val_dl = self.get_data_loaders(datasets)
+
+        if self.train_config.num_batches > 0:
+            total_train_len = self.train_config.num_batches
+        else:
+            total_train_len = len(train_dl)
+        train_dl = self._yield_batches_from_epochs(
+            train_dl, start_epoch=current_epoch)
+
+        # 4. Start training loop
+        with self.data_random:
+            best_acc_test = 0
+            best_auc_test = 0
+            dummy_input = map_to_cuda(next(iter(train_dl))[0])
+            self.logger.add_graph(self.model, dummy_input[0])
+            t_loader = tqdm(train_dl, unit='batch',
+                            total=total_train_len)
+            for batch, current_epoch in t_loader:
+                t_loader.set_description(f"Training Epoch {current_epoch}")
+
+                # Quit if too long
+                if self.train_config.num_batches > 0 & last_step >= self.train_config.num_batches:
+                    break
+                if self.train_config.num_epochs > 0 & current_epoch >= self.train_config.num_epochs:
+                    break
+
+                # Evaluate model
+                if last_step % self.train_config.eval_every_n == 0:
+                    if self.train_config.eval_on_train:
+                        self.eval_model(
+                            self.model,
+                            train_eval_dl,
+                            eval_section='train',
+                            num_eval_batches=self.train_config.num_eval_batches,
+                            logger=self.logger, step=last_step)
+
+                    if self.train_config.eval_on_val:
+                        if self.eval_model(
+                                self.model,
+                                val_dl,
+                                eval_section='val',
+                                logger=self.logger,
+                                num_eval_batches=self.train_config.num_eval_batches,
+                                best_acc_test=best_acc_test, best_auc_test=best_auc_test,
+                                step=last_step):
+                            saver.save(modeldir, last_step,
+                                       current_epoch, is_best=True)
+
+                # Compute and apply gradient
+                with self.model_random:
+                    input, true_label = map_to_cuda(
+                        batch, non_blocking=True)
+                    output = self.model(*input)
+                    loss = self.model.loss(output, true_label)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    lr_scheduler.step()
+
+                # Report metrics
+                if last_step % self.train_config.report_every_n == 0:
+                    t_loader.set_postfix({'loss': loss.item()})
+                    self.logger.add_scalar(
+                        'train/loss', loss.item(), global_step=last_step)
+                    self.logger.add_scalar(
+                        'train/lr',  lr_scheduler.last_lr[0], global_step=last_step)
+                    if self.train_config.log_gradients:
+                        self.logger.log_gradients(self.model, last_step)
+
+                last_step += 1
+                # Run saver
+                if last_step % self.train_config.save_every_n == 0:
+                    saver.save(modeldir, last_step, current_epoch)
+
+    def get_data_loaders(self, dataset: Dict):
         # 3. Get training data somewhere
         with self.data_random:
-            train_data = self.model_preproc.dataset('train')
+            train_data = dataset['train']
             train_data_loader = self.model_preproc.data_loader(
                 train_data,
                 batch_size=self.train_config.batch_size,
@@ -163,7 +246,7 @@ class Trainer:
                 persistent_workers=True,
                 shuffle=True,
                 drop_last=True)
-  
+
         train_eval_data_loader = self.model_preproc.data_loader(
             train_data,
             pin_memory=self.train_config.pin_memory,
@@ -171,7 +254,7 @@ class Trainer:
             persistent_workers=True,
             batch_size=self.train_config.eval_batch_size)
 
-        val_data = self.model_preproc.dataset('val')
+        val_data = dataset['val']
         val_data_loader = self.model_preproc.data_loader(
             val_data,
             num_workers=self.train_config.num_workers,
