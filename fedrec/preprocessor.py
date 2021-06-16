@@ -19,7 +19,7 @@ class PreProcessor(ABC):
         pass
 
     @abstractmethod
-    def datasets(self):
+    def datasets(self, *splits):
         pass
 
 
@@ -50,13 +50,17 @@ class DLRMPreprocessor(PreProcessor):
         self.m_den = self.dataset_processor.m_den
         self.n_emb = self.dataset_processor.n_emb
         self.ln_emb = self.dataset_processor.ln_emb
-
+    
     def datasets(self, *splits):
         assert all([isinstance(split, str) for split in splits])
         return {
             split: self.dataset_processor.dataset(split)
             for split in splits
         }
+    
+    def dataset(self, split):
+        assert isinstance(split, str)
+        return self.dataset_processor.dataset(split)
 
     def data_loader(self, data, **kwargs):
         return torch.utils.data.DataLoader(

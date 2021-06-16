@@ -112,9 +112,11 @@ class Saver(object):
     def save(self, model_dir, step, epoch, is_best=False):
         """Saves model and optimizer to given directory.
         Args:
-           model_dir: Model directory to save.
+           model_dir: Model directory to save. If None ignore.
            step: Current training step.
         """
+        if model_dir is None:
+            return
         save_checkpoint(self._model, self._optimizer, step, epoch, model_dir,
                         keep_every_n=self._keep_every_n, is_best=is_best)
 

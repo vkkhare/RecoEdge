@@ -96,8 +96,8 @@ def main():
                       model_preproc=model_preproc,
                       logger=logger)
     trainer.train(config_dict,
-                  modeldir=args.logdir,
-                  datasets=model_preproc.datasets('train', 'val'))
+                  datasets=model_preproc.datasets('train', 'val'),
+                  modeldir=args.logdir)
 
 
 if __name__ == "__main__":
