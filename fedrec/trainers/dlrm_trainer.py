@@ -1,20 +1,20 @@
-
-from fedrec.preprocessor import PreProcessor
 from typing import Dict
-
 import attr
+
 import numpy as np
 import torch
-from fedrec.utilities import random_state, registry
+from fedrec.base_trainer import BaseTrainer, TrainConfig
+from fedrec.preprocessor import PreProcessor
+from fedrec.utilities import registry
 from fedrec.utilities import saver_utils as saver_mod
 from fedrec.utilities.cuda_utils import map_to_cuda
 from fedrec.utilities.logger import BaseLogger
 from sklearn import metrics
 from tqdm import tqdm
 
-
+@registry.load('train_config','dlrm_std')
 @attr.s
-class TrainConfig:
+class DLRMTrainConfig(TrainConfig):
     eval_every_n = attr.ib(default=10000)
     report_every_n = attr.ib(default=10)
     save_every_n = attr.ib(default=2000)
@@ -39,47 +39,18 @@ class TrainConfig:
     num_workers = attr.ib(default=0)
     pin_memory = attr.ib(default=True)
 
-    log_gradients = attr.ib(default=False)
+@registry.load('trainer','dlrm')
+class DLRMTrainer(BaseTrainer):
 
-    # Seed for RNG used in shuffling the training data.
-    data_seed = attr.ib(default=100)
-    # Seed for RNG used in initializing the model.
-    init_seed = attr.ib(default=100)
-    # Seed for RNG used in computing the model's training loss.
-    # Only relevant with internal randomness in the model, e.g. with dropout.
-    model_seed = attr.ib(default=100)
+    def __init__(
+            self,
+            config_dict: Dict,
+            train_config: DLRMTrainConfig,
+            model_preproc: PreProcessor,
+            logger: BaseLogger) -> None:
 
-
-class Trainer:
-    def __init__(self,
-                 config_dict: Dict,
-                 train_config: TrainConfig,
-                 model_preproc: PreProcessor,
-                 logger: BaseLogger) -> None:
-        self.logger = logger
-        self.config_dict = config_dict
-        self.model_preproc = model_preproc
         self.train_config = train_config
-        self.data_random = random_state.RandomContext(
-            config_dict.get("data_seed", None))
-        self.model_random = random_state.RandomContext(
-            config_dict.get("model_seed", None))
-        self.init_random = random_state.RandomContext(
-            config_dict.get("init_seed", None))
-
-        with self.model_random:
-            # 1. Construct model
-            self.model = registry.construct(
-                'model', config_dict['model'],
-                preprocessor=self.model_preproc,
-                unused_keys=('name', 'preproc')
-            )
-            if torch.cuda.is_available():
-                self.model.cuda()
-
-        self._data_loaders = None
-        self._optimizer = None
-        self._saver = None
+        super().__init__(config_dict, train_config, model_preproc, logger)
 
     @staticmethod
     def _yield_batches_from_epochs(loader, start_epoch):
@@ -220,6 +191,26 @@ class Trainer:
             return True, results
 
         return False, results
+    
+    def test(self):
+        results = {}
+        if self.train_config.eval_on_train:
+            _, results['train_metrics'] = self.eval_model(
+                self.model,
+                self.data_loaders['train_eval'],
+                eval_section='train_eval',
+                num_eval_batches=self.train_config.num_eval_batches,
+                logger=self.logger, step=-1)
+
+        if self.train_config.eval_on_val:
+            _, results['test_metrics'] = self.eval_model(
+                self.model,
+                self.data_loaders['test'],
+                eval_section='test',
+                logger=self.logger,
+                num_eval_batches=self.train_config.num_eval_batches,
+                step=-1)
+        return results
 
     def train(self, modeldir=None):
         last_step, current_epoch = self.saver.restore(modeldir)

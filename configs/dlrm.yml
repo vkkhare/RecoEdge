@@ -39,7 +39,9 @@ model :
 
 
 train :
+  name : dlrm
   config:
+    name : "dlrm_std"
     batch_size : 128
     eval_batch_size : 512
     eval_every_n : 10000

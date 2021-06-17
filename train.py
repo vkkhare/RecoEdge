@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from fedrec.base_trainer import BaseTrainer
 from numpy import log
 
 import torch
@@ -6,7 +7,7 @@ import yaml
 
 from fedrec.utilities import registry
 from fedrec.utilities.logger import NoOpLogger, TBLogger
-from fedrec.trainer import TrainConfig, Trainer
+from fedrec.trainers.dlrm_trainer import DLRMTrainConfig
 
 
 def merge_config_and_args(config, args):
@@ -86,18 +87,19 @@ def main():
     else:
         logger = NoOpLogger()
 
-    train_config = registry.instantiate(
-        TrainConfig,
+    train_config = registry.construct(
+        'train_config',
         merge_config_and_args(config_dict['train']['config'], args)
     )
     # Construct trainer and do training
-    trainer = Trainer(config_dict,
-                      train_config=train_config,
-                      model_preproc=model_preproc,
-                      logger=logger)
-    trainer.train(config_dict,
-                  datasets=model_preproc.datasets('train', 'val'),
-                  modeldir=args.logdir)
+    trainer: BaseTrainer = registry.construct(
+        'trainer',
+        config={'name' : config_dict['train']['name']},
+        config_dict=config_dict,
+        train_config=train_config,
+        model_preproc=model_preproc,
+        logger=logger)
+    trainer.train(modeldir=args.logdir)
 
 
 if __name__ == "__main__":

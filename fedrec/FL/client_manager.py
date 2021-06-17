@@ -1,21 +1,6 @@
 import logging
-import os
-import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../../")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../../../FedML")))
-
-try:
-    from fedml_core.distributed.client.client_manager import ClientManager
-    from fedml_core.distributed.communication.message import Message
-except ImportError:
-    from FedML.fedml_core.distributed.client.client_manager import ClientManager
-    from FedML.fedml_core.distributed.communication.message import Message
-from .message_define import MyMessage
-from .utils import transform_list_to_tensor, post_complete_message_to_sweep_process
-
-
-class FedAVGClientManager(ClientManager):
+class FedAVGClientManager:
     def __init__(self, args, trainer, comm=None, rank=0, size=0, backend="MPI"):
         super().__init__(args, comm, rank, size, backend)
         self.trainer = trainer
