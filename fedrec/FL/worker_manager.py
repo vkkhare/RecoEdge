@@ -1,5 +1,5 @@
   
-from fedrec.FL.comm_manager import CommunicationManager
+from fedrec.FL.comm_manager import CommunicationManager, tag_reciever
 import logging
 from fedrec.utilities.cuda_utils import map_to_list
 
@@ -13,6 +13,7 @@ class WorkerManager(CommunicationManager):
     def run(self):
         super().run()
     
+    @tag_reciever(MyMessage.MSG_TYPE_S2C_SYNC_MODEL_TO_CLIENT)
     def handle_message_receive_model(self, msg_params):
         sender_id = msg_params.get(MyMessage.MSG_ARG_KEY_SENDER)
         model_params = msg_params.get(MyMessage.MSG_ARG_KEY_MODEL_PARAMS)
@@ -89,12 +90,7 @@ class WorkerManager(CommunicationManager):
         for process_id in range(1, self.size):
             self.send_message_init_config(process_id, global_model_params, client_indexes[process_id - 1])
 
-    def register_message_receive_handlers(self):
-        self.register_message_receive_handler(MyMessage.MSG_TYPE_S2C_INIT_CONFIG,
-                                              self.handle_message_init)
-        self.register_message_receive_handler(MyMessage.MSG_TYPE_S2C_SYNC_MODEL_TO_CLIENT,
-                                              self.handle_message_receive_model_from_server)
-
+    @tag_reciever(MyMessage.MSG_TYPE_S2C_INIT_CONFIG)
     def handle_message_init(self, msg_params):
         global_model_params = msg_params.get(MyMessage.MSG_ARG_KEY_MODEL_PARAMS)
         client_index = msg_params.get(MyMessage.MSG_ARG_KEY_CLIENT_INDEX)
