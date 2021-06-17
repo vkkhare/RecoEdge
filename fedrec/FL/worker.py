@@ -1,18 +1,14 @@
 
-import copy
-from fedrec.utilities.random_state import RandomContext
 import logging
-import random
 import time
-import numpy as np
 from typing import Dict, List
 
-import torch
-
+import numpy as np
+from fedrec.base_trainer import BaseTrainer, TrainConfig
 from fedrec.preprocessor import PreProcessor
-from fedrec.base_trainer import TrainConfig, BaseTrainer
 from fedrec.utilities.cuda_utils import map_to_list
 from fedrec.utilities.logger import BaseLogger
+from fedrec.utilities.random_state import RandomContext
 
 
 class FederatedWorker(BaseTrainer):
@@ -71,7 +67,12 @@ class FederatedWorker(BaseTrainer):
 
     def test_local(self, *args, **kwargs):
         return self.test(*args,**kwargs)
-
+    
+    def add_local_trained_result(self, index, model_params, sample_num):
+        logging.info("add_model. index = %d" % index)
+        self.model_dict[index] = model_params
+        self.sample_num_dict[index] = sample_num
+    
     def aggregate(self):
         start_time = time.time()
         model_list = []
