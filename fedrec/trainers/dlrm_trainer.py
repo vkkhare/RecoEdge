@@ -1,9 +1,10 @@
 from typing import Dict
-import attr
 
+import attr
 import numpy as np
 import torch
 from fedrec.base_trainer import BaseTrainer, TrainConfig
+from fedrec.federated_worker import FederatedWorker, Neighbour
 from fedrec.preprocessor import PreProcessor
 from fedrec.utilities import registry
 from fedrec.utilities import saver_utils as saver_mod
@@ -12,7 +13,8 @@ from fedrec.utilities.logger import BaseLogger
 from sklearn import metrics
 from tqdm import tqdm
 
-@registry.load('train_config','dlrm_std')
+
+@registry.load('train_config', 'dlrm_std')
 @attr.s
 class DLRMTrainConfig(TrainConfig):
     eval_every_n = attr.ib(default=10000)
@@ -39,7 +41,8 @@ class DLRMTrainConfig(TrainConfig):
     num_workers = attr.ib(default=0)
     pin_memory = attr.ib(default=True)
 
-@registry.load('trainer','dlrm')
+
+@registry.load('trainer', 'dlrm')
 class DLRMTrainer(BaseTrainer):
 
     def __init__(
@@ -191,7 +194,7 @@ class DLRMTrainer(BaseTrainer):
             return True, results
 
         return False, results
-    
+
     def test(self):
         results = {}
         if self.train_config.eval_on_train:
@@ -288,3 +291,17 @@ class DLRMTrainer(BaseTrainer):
                 # Run saver
                 if last_step % self.train_config.save_every_n == 0:
                     self.saver.save(modeldir, last_step, current_epoch)
+
+
+@registry.load('trainer', 'dlrm_fl')
+class DLRMWorker(FederatedWorker):
+    def __init__(self,
+                 config,
+                 client_index: int,
+                 roles,
+                 in_neighbours: Dict[int, Neighbour],
+                 out_neighbours: Dict[int, Neighbour],
+                 base_trainer: BaseTrainer,
+                 train_data_num: int):
+        super().__init__(config, client_index, roles, in_neighbours,
+                         out_neighbours, base_trainer, train_data_num)

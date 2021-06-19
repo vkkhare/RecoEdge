@@ -9,33 +9,20 @@ from fedrec.utilities.logger import BaseLogger
 
 
 @attr.s
-class TrainConfig:
+class TrainConfig(random_state.RandomizationConfig):
     log_gradients = attr.ib(default=False)
 
-    # Seed for RNG used in shuffling the training data.
-    data_seed = attr.ib(default=None)
-    # Seed for RNG used in initializing the model.
-    init_seed = attr.ib(default=None)
-    # Seed for RNG used in computing the model's training loss.
-    # Only relevant with internal randomness in the model, e.g. with dropout.
-    model_seed = attr.ib(default=None)
 
-
-class BaseTrainer(ABC):
+class BaseTrainer(ABC, random_state.Reproducible):
     def __init__(self,
                  config_dict: Dict,
                  train_config: TrainConfig,
                  model_preproc: PreProcessor,
                  logger: BaseLogger) -> None:
+        super().__init__(train_config)
         self.logger = logger
         self.config_dict = config_dict
         self.model_preproc = model_preproc
-        self.data_random = random_state.RandomContext(
-            train_config.data_seed)
-        self.model_random = random_state.RandomContext(
-            train_config.model_seed)
-        self.init_random = random_state.RandomContext(
-            train_config.init_seed)
 
         with self.model_random:
             # 1. Construct model

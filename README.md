@@ -1,38 +1,19 @@
-# FedDLRM
-A reimplementation of Facebook AI's [DLRM](https://arxiv.org/abs/1906.00091) for Federated Learning
+# RecoEdge: Bringing Recommendations to the Edge
+A one stop solution to build your recommendation models, train them and, deploy them in a privacy preserving manner-- right on the users' devices. 
 
-The repository refactors the [original code](https://github.com/facebookresearch/dlrm) to allow easy exploration with new datasets, model architectures and hyper-parameters.
+We integrate the phenomenal works by [OpenMined](www.openmined.org) and [FedML]() to easily explore new federated learning algorithms and deploy them into production.
 
-# Code Structure
-```bash
-├── fedrec
-│   ├── datasets
-│   │   ├── criteo.py (Kaggle Dataset)
-│   │   └── criteo_processor.py (Pre-processing)
-│   │
-│   ├── modules
-│   │   ├── dlrm.py (DLRM pytorch module) 
-│   │   ├── embeddings.py
-│   │   └── sigmoid.py (activation units)
-│   │
-│   ├── optimization
-│   │   ├── optimizer.py (Adagrad)
-│   │   └── corrected_sgd.py (Pytorch sparse SGD bug)
-│   │   └── schedulers.py
-│   │
-│   └── utilities
-│       └── **
-│       
-├── scripts
-├── configs (Your custom YAML configs)
-├── test.py
-├── train.py (Run standard DLRM)
-├── README.md
-├── conda_requirements.txt
-└── .gitignore
-```
+The steps to building an awesome recommendation system:
+1. :nut_and_bolt: **Standard ML training:** Pick up any ML model and benchmark it using [BaseTrainer](fedrec/base_trainer.py)
+2. :video_game: **Federated Learning Simulation:** Once you are satisfied with your model, explore a host of FL algorithms with [FederatedWorker](fedrec/federated_worker.py)
+3. :factory:	**Industrial Deployment:** After all the testing and simulation, deploy easily using [PySyft]() from OpenMined
+4. :rocket: **Edge Computing:** Integrate with [NimbleEdge](www.nimbleedge.ai) to improve FL training times by over **100x**  
 
-## Running Standard DLRM Training
+
+# QuickStart
+
+Let's train [Facebook AI's DLRM](https://arxiv.org/abs/1906.00091) on the edge. DLRM has been a standard baseline for all neural network based recommendation models.
+
 
 **Download and extract** the Kaggle Criteo dataset from [Google Drive](https://drive.google.com/file/d/17K5ntN30LbMWJ2gHHSkwCGHEcAjShm2_/view?usp=sharing)
 
@@ -44,7 +25,7 @@ tar -xf dac.tar.gz
 
 Clone this repo and change the argument `datafile` in [configs/dlrm.yml](configs/dlrm.yml) to the above path.
 ```bash
-git clone https://github.com/NimbleEdge/fedDLRM
+git clone https://github.com/NimbleEdge/RecoEdge
 ```
 ```yml
 model :
@@ -76,9 +57,29 @@ tensorboard --logdir $HOME/logs/kaggle_criteo --port 8888
 ```
 
 # Federated Training
-coming soon
+_This section is still work in progress. Reach out to us directly if you need help with FL deployment_
 
+Now we will simulate DLRM in federated setting. Create data split to mimic your users. We use Drichlet sampling for creating non-IID datasets for the model.
 
+```bash
+```
+
+Adjust the parameters for distributed training like MPI in the [config file](configs/dlrm_fl.yml)
+```yaml
+communications:
+  gpu_map:
+    host1: [0, 2]
+    host2: [1, 0, 1]
+    host3: [1, 1, 0, 1]
+    host4: [0, 1, 0, 0, 0, 1, 0, 2]
+```
+
+Begin FL simulation by
+```console
+mpirun -np 20 python -m mpi4py.futures train_fl.py --num_workers 1000.
+```
+
+Deploy with PySyft
 # Customization
 ## Training Configuration
 There are two ways to adjust training hyper-parameters:

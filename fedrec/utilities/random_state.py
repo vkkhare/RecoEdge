@@ -1,5 +1,6 @@
 import random
 import sys
+import attr
 
 import numpy as np
 import torch
@@ -59,3 +60,22 @@ class RandomContext:
         self.outside_state = None
 
         self._active = False
+
+@attr.s
+class RandomizationConfig:
+    # Seed for RNG used in shuffling the training data.
+    data_seed = attr.ib(default=None)
+    # Seed for RNG used in initializing the model.
+    init_seed = attr.ib(default=None)
+    # Seed for RNG used in computing the model's training loss.
+    # Only relevant with internal randomness in the model, e.g. with dropout.
+    model_seed = attr.ib(default=None)
+
+class Reproducible:
+    def __init__(self, config : RandomizationConfig) -> None:
+        self.data_random = RandomContext(
+            config.data_seed)
+        self.model_random = RandomContext(
+            config.model_seed)
+        self.init_random = RandomContext(
+            config.init_seed)

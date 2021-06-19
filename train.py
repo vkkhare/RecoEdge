@@ -1,13 +1,11 @@
 from argparse import ArgumentParser
 from fedrec.base_trainer import BaseTrainer
-from numpy import log
 
 import torch
 import yaml
 
 from fedrec.utilities import registry
 from fedrec.utilities.logger import NoOpLogger, TBLogger
-from fedrec.trainers.dlrm_trainer import DLRMTrainConfig
 
 
 def merge_config_and_args(config, args):
