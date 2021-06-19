@@ -121,3 +121,12 @@ You can define your own modules and add them in the [fedrec/modules](fedrec/modu
 model : 
   name : "<model name>"
 ```
+
+# Contribute
+
+1. Star, fork, and clone the repo.
+2. Do your work.
+3. Push to your fork.
+4. Submit a PR to NimbleEdge/RecoEdge
+
+We welcome you to the [slack](http://www.nimbleedgeworkspace.slack.com/) for queries related to the library and contribution in general. See you there!
