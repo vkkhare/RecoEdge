@@ -17,8 +17,8 @@ class BaseTrainer(ABC, random_state.Reproducible):
     def __init__(self,
                  config_dict: Dict,
                  train_config: TrainConfig,
-                 model_preproc: PreProcessor,
-                 logger: BaseLogger) -> None:
+                 logger: BaseLogger,
+                 model_preproc: PreProcessor = None) -> None:
         super().__init__(train_config)
         self.logger = logger
         self.config_dict = config_dict
@@ -41,6 +41,9 @@ class BaseTrainer(ABC, random_state.Reproducible):
     def model(self):
         if self._model is not None:
             return self._model
+
+        if self.model_preproc is None:
+            raise ValueError("Initiate dataset before creating model")
 
         with self.model_random:
             # 1. Construct model

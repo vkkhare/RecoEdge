@@ -1,4 +1,4 @@
-from fedrec.federated_worker import FederatedWorker, Neighbour
+from fedrec.federated_worker import FederatedWorker, Neighbour, WorkerDataset
 from fedrec.utilities.cuda_utils import mapping_processes_to_gpus
 import logging
 import os
@@ -29,10 +29,10 @@ class FL_Config:
 
 
 class FL_Simulator(Reproducible):
-    def __init__(self, args, config_dict, main_process_id, main_worker_num, logger) -> None:
+    def __init__(self, args, config_dict, process_id, worker_num, logger) -> None:
 
         device = mapping_processes_to_gpus(
-            config_dict['communications']['gpu_map'], process_id, worker_number)
+            config_dict['communications']['gpu_map'], process_id, worker_num)
         # load data
         self.model_preprocs = load_and_split_data()
 
@@ -44,58 +44,33 @@ class FL_Simulator(Reproducible):
         )
         self.fl_config: FL_Config = registry.construct('')
         self.logger = logger
-        self._setup_workers()
-
-    @staticmethod
-    def create_process_pool():
-        NotImplemented
-
-    @staticmethod
-    def _create_worker(
-            config_dict,
-            train_config,
-            model_preprocs,
-            logger,
-            worker_id,
-            roles,
-            in_neighbours,
-            out_neighbours):
-
-        trainer: BaseTrainer = registry.construct(
+        self.process_id = process_id
+        self.trainer: BaseTrainer = registry.construct(
             'trainer',
             config={'name': config_dict['train']['name']},
             config_dict=config_dict,
-            train_config=train_config,
-            model_preproc=model_preprocs[worker_id],
+            train_config=self.train_config,
+            model_preproc=None,
             logger=logger)
-        in_neighbours = [Neighbour(n) for n in in_neighbours]
-        out_neighbours = [Neighbour(n) for n in out_neighbours]
-        return FederatedWorker(worker_id, roles, in_neighbours, out_neighbours, trainer)
 
-    @staticmethod
-    def _run_simulation():
-        NotImplemented
+        if self.process_id == 0:
+            self._setup_workers()
 
     def _setup_workers(self):
-        self.aggregator = self._create_worker(
-            self.config_dict,
-            self.train_config,
-            self.model_preprocs,
-            self.logger, 0,
+        self.worker_list = WorkerDataset()
+        self.worker_list.add_worker(
+            self.trainer,
             ['aggregator'],
             range(1, self.fl_config.num_workers),
             range(1, self.fl_config.num_workers))
 
-        self.workers = [
-            self._create_worker(
-                self.config_dict, self.train_config,
-                self.model_preprocs, self.logger, id, ['train'], 0, 0)
-            for id in range(1, self.fl_config.num_workers + 1)
-        ]
+        for _ in range(1, self.fl_config.num_workers + 1):
+            self.worker_list.add_worker(self.trainer, ['train'], [0], [0])
 
-    def start_simulation():
-        client_index = process_id - 1
-        model_trainer.set_id(client_index)
+    def start_simulation(
+            config_dict):
+        #TODO start all aggregators here
+        #TODO create process manager and start it for all processes
         process_manager.run()
 
 

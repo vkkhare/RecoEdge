@@ -49,11 +49,11 @@ class DLRMTrainer(BaseTrainer):
             self,
             config_dict: Dict,
             train_config: DLRMTrainConfig,
-            model_preproc: PreProcessor,
-            logger: BaseLogger) -> None:
+            logger: BaseLogger, 
+            model_preproc: PreProcessor,) -> None:
 
         self.train_config = train_config
-        super().__init__(config_dict, train_config, model_preproc, logger)
+        super().__init__(config_dict, train_config, logger, model_preproc)
 
     @staticmethod
     def _yield_batches_from_epochs(loader, start_epoch):

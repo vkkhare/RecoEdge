@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from fedrec.base_trainer import BaseTrainer
+from fedrec.trainers.base_trainer import BaseTrainer
 
 import torch
 import yaml

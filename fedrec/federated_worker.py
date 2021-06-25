@@ -1,4 +1,5 @@
 
+from collections import defaultdict
 import logging
 import time
 from typing import Dict, List, Set
@@ -65,8 +66,8 @@ class FederatedWorker(Reproducible):
         self.sample_num_dict = dict()
 
     def serialise(self):
-        in_neigh = { k : v.last_sync for k,v in self.in_neighbours}
-        out_neigh = { k : v.last_sync for k,v in self.out_neighbours}
+        in_neigh = {k: v.last_sync for k, v in self.in_neighbours}
+        out_neigh = {k: v.last_sync for k, v in self.out_neighbours}
         return WorkerState(
             id=self.worker_index,
             round_idx=self.round_idx,
@@ -79,8 +80,8 @@ class FederatedWorker(Reproducible):
             roles=self.roles,
             storage=self.persistent_storage,
             neighbours={
-                "in" : in_neigh,
-                "out" : out_neigh
+                "in": in_neigh,
+                "out": out_neigh
             }
         )
 
@@ -207,3 +208,30 @@ class FederatedWorker(Reproducible):
                     self.in_neighbours, min(client_num_per_round, num_neighbours), replace=False)
         logging.info("worker_indexes = %s" % str(selected_neighbours))
         return selected_neighbours
+
+
+class WorkerDataset:
+    def __init__(self) -> None:
+        self._workers = {}
+        self.workers_by_types = defaultdict(list)
+        self._len = 0
+    
+    def add_worker(self,
+                   trainer,
+                   roles,
+                   in_neighbours,
+                   out_neighbours):
+
+        in_neighbours = [Neighbour(n) for n in in_neighbours]
+        out_neighbours = [Neighbour(n) for n in out_neighbours]
+        
+        self._workers[self._len] = FederatedWorker(
+            self._len, roles, in_neighbours, out_neighbours, trainer)
+        
+        for role in roles:
+            self.workers_by_types[role] += [self._len]
+            
+        self._len += 1
+
+    def __len__(self):
+        return self._len
