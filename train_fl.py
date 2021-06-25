@@ -7,9 +7,11 @@ from argparse import ArgumentParser
 
 import setproctitle
 import torch
-import yaml
+import functools
 
-from fedrec.base_trainer import BaseTrainer
+import yaml
+import attr
+from fedrec.trainers.base_trainer import BaseTrainer
 from fedrec.utilities import registry
 from fedrec.utilities.logger import NoOpLogger, TBLogger
 from fedrec.utilities.random_state import Reproducible
@@ -21,10 +23,16 @@ def merge_config_and_args(config, args):
     return {**config, **stripped_dict}
 
 
+@attr.s
+class FL_Config:
+    num_workers = attr.ib(2)
+
+
 class FL_Simulator(Reproducible):
     def __init__(self, args, config_dict, main_process_id, main_worker_num, logger) -> None:
 
-        device = mapping_processes_to_gpus(config_dict['communications']['gpu_map'], process_id, worker_number)
+        device = mapping_processes_to_gpus(
+            config_dict['communications']['gpu_map'], process_id, worker_number)
         # load data
         self.model_preprocs = load_and_split_data()
 
@@ -34,35 +42,61 @@ class FL_Simulator(Reproducible):
             'train_config',
             merge_config_and_args(self.config_dict['train']['config'], args)
         )
-
+        self.fl_config: FL_Config = registry.construct('')
         self.logger = logger
         self._setup_workers()
 
-    def _create_worker(self, worker_id, roles, in_neighbours, out_neighbours):
-        trainer : BaseTrainer = registry.construct(
+    @staticmethod
+    def create_process_pool():
+        NotImplemented
+
+    @staticmethod
+    def _create_worker(
+            config_dict,
+            train_config,
+            model_preprocs,
+            logger,
+            worker_id,
+            roles,
+            in_neighbours,
+            out_neighbours):
+
+        trainer: BaseTrainer = registry.construct(
             'trainer',
-            config={'name' : self.config_dict['train']['name']},
-            config_dict=self.config_dict,
-            train_config=self.train_config,
-            model_preproc=self.model_preprocs[worker_id],
-            logger=self.logger)
+            config={'name': config_dict['train']['name']},
+            config_dict=config_dict,
+            train_config=train_config,
+            model_preproc=model_preprocs[worker_id],
+            logger=logger)
         in_neighbours = [Neighbour(n) for n in in_neighbours]
         out_neighbours = [Neighbour(n) for n in out_neighbours]
-        return FederatedWorker(worker_id, roles,in_neighbours, out_neighbours, trainer)
+        return FederatedWorker(worker_id, roles, in_neighbours, out_neighbours, trainer)
 
     @staticmethod
     def _run_simulation():
-        
+        NotImplemented
+
+    def _setup_workers(self):
+        self.aggregator = self._create_worker(
+            self.config_dict,
+            self.train_config,
+            self.model_preprocs,
+            self.logger, 0,
+            ['aggregator'],
+            range(1, self.fl_config.num_workers),
+            range(1, self.fl_config.num_workers))
+
+        self.workers = [
+            self._create_worker(
+                self.config_dict, self.train_config,
+                self.model_preprocs, self.logger, id, ['train'], 0, 0)
+            for id in range(1, self.fl_config.num_workers + 1)
+        ]
 
     def start_simulation():
         client_index = process_id - 1
         model_trainer.set_id(client_index)
-        backend = args.backend
-        trainer = FedAVGTrainer(client_index, train_data_local_dict, train_data_local_num_dict, test_data_local_dict,
-                                train_data_num, device, args, model_trainer)
-        client_manager = FedAVGClientManager(
-            args, trainer, comm, process_id, size, backend)
-        client_manager.run()
+        process_manager.run()
 
 
 def main():
@@ -114,10 +148,10 @@ def main():
 
     with open(args.config, 'r') as stream:
         config_dict = yaml.safe_load(stream)
-    
+
     # initialize distributed computing (MPI)
     comm, process_id, worker_number = FedML_init()
-    
+
     # customize the process name
     str_process_name = "FedAvg (distributed):" + str(process_id)
     setproctitle.setproctitle(str_process_name)
@@ -130,13 +164,13 @@ def main():
                         datefmt='%a, %d %b %Y %H:%M:%S')
     hostname = socket.gethostname()
     logging.info("#############process ID = " + str(process_id) +
-                    ", host name = " + hostname + "########" +
-                    ", process ID = " + str(os.getpid()) +
-                    ", process Name = " + str(psutil.Process(os.getpid())))
+                 ", host name = " + hostname + "########" +
+                 ", process ID = " + str(os.getpid()) +
+                 ", process Name = " + str(psutil.Process(os.getpid())))
 
     # Please check "GPU_MAPPING.md" to see how to define the topology
     logging.info("process_id = %d, size = %d" %
-                    (process_id, worker_number))
+                 (process_id, worker_number))
 
     if args.logger:
         if args.logdir is None:
@@ -146,7 +180,8 @@ def main():
         logger = NoOpLogger()
 
     # Construct trainer and do training
-    fl_simulator = FL_Simulator(args, config_dict, process_id, worker_number, logger)
+    fl_simulator = FL_Simulator(
+        args, config_dict, process_id, worker_number, logger)
     fl_simulator.run_simulation(modeldir=args.logdir)
 
 

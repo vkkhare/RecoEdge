@@ -1,13 +1,24 @@
 
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Set
 import attr
 
 import numpy as np
-from fedrec.base_trainer import BaseTrainer
+from fedrec.trainers.base_trainer import BaseTrainer
 from fedrec.utilities.cuda_utils import map_to_list
 from fedrec.utilities.random_state import RandomContext, Reproducible
+
+
+@attr.s(kw_only=True)
+class WorkerState:
+    id = attr.ib()
+    model_preproc = attr.ib()
+    roles = attr.ib()
+    round_idx = attr.ib(0)
+    state_dict = attr.ib(None)
+    storage = attr.ib(None)
+    neighbours = attr.ib(dict)
 
 
 @attr.s
@@ -15,6 +26,7 @@ class Neighbour:
     id = attr.ib()
     model = attr.ib(None)
     sample_num = attr.ib(None)
+    last_sync = attr.ib(-1)
 
     def update(self, kwargs):
         for k, v in kwargs:
@@ -34,15 +46,15 @@ class FederatedWorker(Reproducible):
                  in_neighbours: Dict[int, Neighbour],
                  out_neighbours: Dict[int, Neighbour],
                  base_trainer: BaseTrainer,
-                 train_data_num: int,
+                 persistent_storage: str = None,
                  is_mobile: bool = True,
-                 round_idx: int=0):
+                 round_idx: int = 0):
 
         self.round_idx = round_idx
         self.worker_index = worker_index
         self.roles = roles
         self.is_mobile = is_mobile
-
+        self.persistent_storage = persistent_storage
         self.in_neighbours = in_neighbours
         self.out_neighbours = out_neighbours
 
@@ -51,6 +63,49 @@ class FederatedWorker(Reproducible):
         # TODO remove these
         self.model_dict = dict()
         self.sample_num_dict = dict()
+
+    def serialise(self):
+        in_neigh = { k : v.last_sync for k,v in self.in_neighbours}
+        out_neigh = { k : v.last_sync for k,v in self.out_neighbours}
+        return WorkerState(
+            id=self.worker_index,
+            round_idx=self.round_idx,
+            state_dict={
+                'model': self.get_model_params(),
+                'optimizer': self.trainer.optimizer.state_dict(),
+                'step': 0
+            },
+            model_preproc=self.trainer.model_preproc,
+            roles=self.roles,
+            storage=self.persistent_storage,
+            neighbours={
+                "in" : in_neigh,
+                "out" : out_neigh
+            }
+        )
+
+    @classmethod
+    def load_worker(
+            cls,
+            trainer: BaseTrainer,
+            in_neigh: List[Neighbour],
+            out_neigh: List[Neighbour],
+            state: WorkerState):
+
+        trainer.load_state(
+            state.state_dict['model'],
+            state.state_dict['optimizer'],
+            state.model_preproc)
+
+        return cls(
+            state.id,
+            state.roles,
+            in_neigh,
+            out_neigh,
+            base_trainer=trainer,
+            persistent_storage=state.storage,
+            round_idx=state.round_idx
+        )
 
     def get_model_params(self):
         return self.trainer.model.cpu().state_dict()
@@ -65,8 +120,8 @@ class FederatedWorker(Reproducible):
             self.trainer.model_preproc.datasets('train'))
         self.reset_loaders()
 
-    def train(self, round_idx=None, *args, **kwargs):
-        self.round_idx = round_idx
+    def train(self, *args, **kwargs):
+        self.round_idx += 1
         self.trainer.train(*args, **kwargs)
 
         weights = self.get_model_params()
@@ -82,6 +137,28 @@ class FederatedWorker(Reproducible):
     def sync_neighbour_result(self, id, **kwargs):
         logging.info("add_model. id = %d" % id)
         self.in_neighbours[id].update(kwargs)
+
+    def broadcast_model(self, round_idx, out_neighbours: Set[int]):
+        '''
+            Send the model to whoever needs it. 
+            Train it if already submitted the current model.
+        '''
+        neighbours = set(self.out_neighbours.keys())
+        if not out_neighbours.issubset(neighbours):
+            raise ValueError("invalid recieve call")
+
+        out_reqs = {
+            n for n in out_neighbours if self.out_neighbours[n].last_sync < round_idx}
+        if out_reqs:
+            weights, s_n = self.train(self.persistent_storage)
+        else:        # transform Tensor to list
+            weights, s_n = self.get_model_params(), self.local_sample_number
+            if self.is_mobile == 1:
+                weights = map_to_list(weights)
+        for n in out_neighbours:
+            self.out_neighbours[n].last_sync = self.round_idx
+
+        return weights, s_n, self.round_idx
 
     def aggregate(self):
         '''

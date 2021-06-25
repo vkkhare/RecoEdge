@@ -3,7 +3,7 @@ from typing import Dict
 import attr
 import numpy as np
 import torch
-from fedrec.base_trainer import BaseTrainer, TrainConfig
+from fedrec.trainers.base_trainer import BaseTrainer, TrainConfig
 from fedrec.federated_worker import FederatedWorker, Neighbour
 from fedrec.preprocessor import PreProcessor
 from fedrec.utilities import registry

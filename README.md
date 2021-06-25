@@ -129,4 +129,4 @@ model :
 3. Push to your fork.
 4. Submit a PR to NimbleEdge/RecoEdge
 
-We welcome you to the [slack](http://www.nimbleedgeworkspace.slack.com/) for queries related to the library and contribution in general. See you there!
+We welcome you to the [slack](https://join.slack.com/t/nimbleedgecommunity/shared_invite/zt-ry422epv-~uJg4azOlFl2zSy6EiFSnA) for queries related to the library and contribution in general. See you there!
