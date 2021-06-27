@@ -74,6 +74,75 @@ communications:
     host4: [0, 1, 0, 0, 0, 1, 0, 2]
 ```
 
+Implement your own federated learning algorithm. In the demo we are using Federated Averaging. You just need to sub-class [FederatedWorker](fedrec/federated_worker.py) and implement `run()` method.
+
+```python
+
+@registry.load('fl_algo', 'fed_avg')
+class FedAvgWorker(FederatedWorker):
+    def __init__(self, ...):
+        super().__init__(...)
+
+    async def run(self):
+        '''
+            `Run` function updates the local model. 
+            Implement this method to determine how the roles interact with each other to determine the final updated model.
+            For example a worker which has both the `aggregator` and `trainer` roles might first train locally then run discounted `aggregate()` to get the fianl update model 
+
+
+            In the following example,
+            1. Aggregator requests models from the trainers before aggregating and updating its model.
+            2. Trainer responds to aggregators' requests after updating its own model by local training.
+
+            Since standard FL requires force updates from central entity before each cycle, trainers always start with global model/aggregator's model 
+
+        '''
+        assert role in self.roles, InvalidStateError("unknown role for worker")
+
+        if role == 'aggregator':
+            neighbours = await self.request_models_suspendable(self.sample_neighbours())
+            weighted_params = self.aggregate(neighbours)
+            self.update_model(weighted_params)
+        elif role == 'trainer':
+            # central server in this case
+            aggregators = list(self.out_neighbours.values())
+            global_models = await self.request_models_suspendable(aggregators)
+            self.update_model(global_models[0])
+            await self.train(model_dir=self.persistent_storage)
+        self.round_idx += 1
+
+    # Your aggregation strategy
+    def aggregate(self, neighbour_ids):
+        model_list = [
+            (self.in_neighbours[id].sample_num, self.in_neighbours[id].model)
+            for id in neighbour_ids
+        ]
+        (num0, averaged_params) = model_list[0]
+        for k in averaged_params.keys():
+            for i in range(0, len(model_list)):
+                local_sample_number, local_model_params = model_list[i]
+                w = local_sample_number / training_num
+                if i == 0:
+                    averaged_params[k] = local_model_params[k] * w
+                else:
+                    averaged_params[k] += local_model_params[k] * w
+
+        return averaged_params
+
+    # Your sampling strategy
+    def sample_neighbours(self, round_idx, client_num_per_round):
+        num_neighbours = len(self.in_neighbours)
+        if num_neighbours == client_num_per_round:
+            selected_neighbours = [
+                neighbour for neighbour in self.in_neighbours]
+        else:
+            with RandomContext(round_idx):
+                selected_neighbours = np.random.choice(
+                    self.in_neighbours, min(client_num_per_round, num_neighbours), replace=False)
+        logging.info("worker_indexes = %s" % str(selected_neighbours))
+        return selected_neighbours
+```
+
 Begin FL simulation by
 ```console
 mpirun -np 20 python -m mpi4py.futures train_fl.py --num_workers 1000.
