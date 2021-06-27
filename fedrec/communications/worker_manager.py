@@ -8,14 +8,17 @@ from fedrec.utilities.cuda_utils import map_to_list
 
 
 class WorkerComManager(CommunicationManager):
-    def __init__(self, args, trainer, comm=None, rank=0, size=0, backend="MPI"):
-        super().__init__(args, comm, rank, size, backend)
+    def __init__(self, trainer, worker_id, config_dict):
+        super().__init__(config_dict=config_dict)
         self.trainer = trainer
         self.num_rounds = args.comm_round
         self.round_idx = 0
+        self.id = worker_id
 
+            
     def run(self):
         super().run()
+
 
     @tag_reciever(ProcMessage.SYNC_MODEL)
     def handle_message_receive_model(self, msg_params):
@@ -80,7 +83,7 @@ class WorkerComManager(CommunicationManager):
             MyMessage.MSG_ARG_KEY_CLIENT_INDEX, str(client_index))
         self.send_message(message)
 
-    def send_message_sync_model(self, receive_id, global_model_params, client_index):
+    async def send_message_get_models(self, receive_id, global_model_params, client_index):
         logging.info(
             "send_message_sync_model_to_client. receive_id = %d" % receive_id)
         message = Message(
@@ -89,7 +92,7 @@ class WorkerComManager(CommunicationManager):
             MyMessage.MSG_ARG_KEY_MODEL_PARAMS, global_model_params)
         message.add_params(
             MyMessage.MSG_ARG_KEY_CLIENT_INDEX, str(client_index))
-        self.send_message(message)
+        self.send_message(message, block=True)
 
     def send_init_msg(self):
         # or send into Topology Manager

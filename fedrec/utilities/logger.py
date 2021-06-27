@@ -1,10 +1,23 @@
 from abc import ABC, abstractmethod
+import logging
+from time import time
 from torch.utils.tensorboard import SummaryWriter
 
     
 class BaseLogger(ABC):
     def __init__(self) -> None:
         super().__init__()
+
+    @staticmethod
+    def time(func):
+        def decorated(*args, **kwargs):
+            start_time = time()
+            out = func(*args, **kwargs)
+            end_time = time()
+            logging.info("aggregate time cost: %d" % (end_time - start_time))
+            return out
+            
+        return decorated
     
     @abstractmethod
     def log(*args, **kwargs):

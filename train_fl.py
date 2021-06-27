@@ -65,13 +65,15 @@ class FL_Simulator(Reproducible):
             range(1, self.fl_config.num_workers))
 
         for _ in range(1, self.fl_config.num_workers + 1):
-            self.worker_list.add_worker(self.trainer, ['train'], [0], [0])
+            self.worker_list.add_worker(self.trainer, ['trainer'], [0], [0])
 
-    def start_simulation(
-            config_dict):
-        #TODO start all aggregators here
-        #TODO create process manager and start it for all processes
-        process_manager.run()
+    def start_simulation(self):
+        # TODO start all aggregators here
+        # TODO create process manager and start it for all processes
+
+        map(lambda x: x.run(),
+            self.worker_list.get_workers_by_roles('aggregator'))
+        process_manager.run('aggregators', )
 
 
 def main():

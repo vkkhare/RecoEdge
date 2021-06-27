@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from collections import defaultdict
 from types import FunctionType
 
@@ -21,22 +20,15 @@ def tag_reciever(message_type):
 
 class CommunicationManager:
 
-    def __init__(self, args, config_dict, rank=0):
-        self.args = args
-        self.rank = rank
-
+    def __init__(self, config_dict):
         self.com_manager = registry.construct('communications', config_dict)
         self.com_manager.add_observer(self)
         self.message_handler_dict = dict()
 
     def run(self):
-        self.register_message_receive_handlers()
         self.com_manager.handle_receive_message()
 
-    def get_sender_id(self):
-        return self.rank
-
-    def send_message(self, message):
+    def send_message(self, message, block=False):
         # message includes reciever id and sender id
         self.com_manager.send_message(message)
 
