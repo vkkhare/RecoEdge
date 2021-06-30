@@ -144,7 +144,7 @@ class FedAvgWorker(FederatedWorker):
 ```
 
 Begin FL simulation by
-```console
+```bash
 mpirun -np 20 python -m mpi4py.futures train_fl.py --num_workers 1000.
 ```
 
