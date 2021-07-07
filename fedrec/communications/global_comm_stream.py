@@ -1,8 +1,6 @@
 
 from typing import Dict
 
-from fedrec.federated_worker import FederatedWorker
-
 
 class CommunicationStream:
     def __init__(self) -> None:

@@ -1,5 +1,5 @@
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from asyncio.exceptions import InvalidStateError
 from collections import defaultdict
 from types import FunctionType
@@ -167,7 +167,7 @@ class FederatedWorker(Reproducible, ABC):
             raise ValueError("invalid recieve call")
 
         out_reqs = {
-            n for n in out_neighbours if self.out_neighbours[n].last_sync < round_idx}
+            n for n in out_neighbours if self.out_neighbours[n].last_sync < self.round_idx}
         if out_reqs:
             await self.run()
             # transform Tensor to list
