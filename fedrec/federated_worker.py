@@ -10,6 +10,7 @@ import logging
 from typing import Dict, List, Set
 import attr
 import asyncio
+import json
 
 import numpy as np
 from fedrec.trainers.base_trainer import BaseTrainer
@@ -150,12 +151,15 @@ class FederatedWorker(Reproducible, ABC):
         self.trainer.reset_loaders()
 
     async def train(self, *args, **kwargs):
-        # TODO lauch a training job here in worker process here
-        await self.trainer.train(*args, **kwargs)
+        raw_output = await self.fl_com_manager.send_job("train", *args, **kwargs)
+        new_state, output = json.loads(raw_output)
+        self.trainer.update_state(
+            new_state.state_dict['model'],
+            new_state.state_dict['optimizer'])
+        return output
 
     async def test(self, *args, **kwargs):
-        # TODO lauch a testing job here in worker process here
-        return self.trainer.test(*args, **kwargs)
+        await self.fl_com_manager.send_job("test", *args, **kwargs)
 
     async def get_model(self, round_idx, out_neighbours: Set[int]):
         '''
