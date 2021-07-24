@@ -4,6 +4,8 @@ import pathlib
 import attr
 from collections.abc import Iterable
 import argparse
+import pickle
+from warnings import warn
 
 def load_tensor(file, device=None):
     t = torch.load(file)
@@ -84,3 +86,11 @@ def dash_separated_floats(value):
 
     return value
 
+
+# TODO: Take care of serialization for specific objects
+def serialize_object(obj):
+    if isinstance(obj, str) or isinstance(obj, bytes):
+        return obj
+    else:
+        warn(f"Pickle is being used to serialize object of type: {type(obj)}")
+        return pickle.dumps(obj)

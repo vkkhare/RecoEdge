@@ -30,10 +30,14 @@ class BaseTrainer(ABC, random_state.Reproducible):
         self._saver = None
 
 
-    def load_state(self, model_state, optimizer_state, model_preproc):
+    def update_state(self, model_state, optimizer_state, model_preproc=None):
         self.model.load_state_dict(model_state)
         self.optimizer.load_state_dict(optimizer_state)
-        self.model_preproc = model_preproc
+        if model_preproc is not None:
+            self.model_preproc = model_preproc
+
+    def load_state(self, model_state, optimizer_state, model_preproc=None):
+        self.update_state(model_state, optimizer_state, model_preproc)
         self.reset_loaders()
         self._saver = None
 

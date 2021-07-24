@@ -1,9 +1,11 @@
 
 from fedrec.communications.messages import ProcMessage
 import logging
+import json
 
 from fedrec.communications.comm_manager import (CommunicationManager,
                                                 tag_reciever)
+from fedrec.utilities.serialization import serialize_object
 
 
 class WorkerComManager(CommunicationManager):
@@ -87,6 +89,25 @@ class WorkerComManager(CommunicationManager):
         message.add_params(MyMessage.MSG_ARG_KEY_MODEL_PARAMS, weights)
         message.add_params(MyMessage.MSG_ARG_KEY_NUM_SAMPLES, local_sample_num)
         self.send_message(message)
+
+    async def send_job(self, job_type, *args, **kwargs):
+        if job_type == 'train':
+            message = Message(MyMessage.MSG_TYPE_JOB_TRAIN, self.get_sender_id())
+            to_block = True
+        elif job_type == 'test':
+            message = Message(MyMessage.MSG_TYPE_JOB_TEST, self.get_sender_id())
+            to_block = False
+        else:
+            raise ValueError(f"Invalid job type: {job_type}")
+
+        serialized_args = [serialize_object(i) for i in args]
+        message.add_params(MyMessage.MSG_ARG_JOB_ARGS, json.dumps(serialized_args))
+
+        serialized_kwargs = {key: serialize_object(val) for key, val in kwargs}
+        message.add_params(MyMessage.MSG_ARG_JOB_KWARGS, json.dumps(serialized_kwargs))
+
+        logging.info(f"Submitting job to global process manager of type: {job_type}")
+        return await self.send_message(message, block=to_block)
 
     def __train(self):
         logging.info("#######training########### round_id = %d" %
