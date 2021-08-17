@@ -1,7 +1,10 @@
 from collections import defaultdict
 from types import FunctionType
-
+from communication_interfaces import ZeroMQ
 from fedrec.utilities import registry
+from global_comm_stream import CommunicationStream
+from time import sleep
+import asyncio
 
 MESSAGE_HANDLER_DICT = defaultdict(dict)
 
@@ -19,18 +22,36 @@ def tag_reciever(message_type):
 
 
 class CommunicationManager:
-
     def __init__(self, config_dict):
         self.com_manager = registry.construct('communications', config_dict)
         self.com_manager.add_observer(self)
         self.message_handler_dict = dict()
+        self.queue = asyncio.Queue()        
 
+    def register_queue(self, receving_id):
+        dic = CommunicationStream.get_global_hash_map()
+        if receving_id in dic:
+            raise LookupError('{} already present in hash_map'.format(receving_id))
+        else:
+            dic[receving_id] = self.queue
+    
     def run(self):
         self.com_manager.handle_receive_message()
 
-    def send_message(self, message, block=False):
+    async def send_message(self, message, block=False):
         # message includes reciever id and sender id
-        self.com_manager.send_message(message)
-
+        self.com_manager.send(message)
+        if block:
+            return await self.com_manager.recieve()
+        else:
+            return
+                
+    async def recieve(self):
+        while True:
+            message = await self.queue.get()
+            # process the token received from a producer
+            self.queue.task_done()
+            print("Token Consumed . . ./n")
+        
     def finish(self):
         self.com_manager.stop_receive_message()

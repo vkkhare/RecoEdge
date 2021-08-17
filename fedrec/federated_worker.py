@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from asyncio.exceptions import InvalidStateError
 from collections import defaultdict
 from types import FunctionType
+from typing_extensions import Required
 from fedrec.utilities import registry
 from fedrec.utilities.logger import BaseLogger
 from fedrec.communications.worker_manager import WorkerComManager
@@ -149,6 +150,9 @@ class FederatedWorker(Reproducible, ABC):
         self.local_sample_number = len(
             self.trainer.model_preproc.datasets('train'))
         self.trainer.reset_loaders()
+
+    def add_to_message_queue(self, message):
+        self.fl_com_manager.queue.put(message['token'])
 
     async def train(self, *args, **kwargs):
         raw_output = await self.fl_com_manager.send_job("train", *args, **kwargs)
