@@ -43,6 +43,9 @@ communications:
     host3: [1, 1, 0, 1]
     host4: [0, 1, 0, 0, 0, 1, 0, 2]
   
+process_manager:
+  max_jobs_per_process: 10
+  comm_manager_config : []
 
 train :
   name : dlrm

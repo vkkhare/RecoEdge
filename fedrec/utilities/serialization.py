@@ -90,7 +90,15 @@ def dash_separated_floats(value):
 # TODO: Take care of serialization for specific objects
 def serialize_object(obj):
     if isinstance(obj, str) or isinstance(obj, bytes):
+        # TODO : Pickle if bytes else pickled v/s bytes can't be differentiated.
         return obj
     else:
         warn(f"Pickle is being used to serialize object of type: {type(obj)}")
         return pickle.dumps(obj)
+
+def deserialize_object(obj):
+    if isinstance(obj, str):
+        return obj
+    else:
+        warn(f"Pickle is being used to deserialize object of type: {type(obj)}")
+        return pickle.loads(obj)
