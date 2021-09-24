@@ -14,15 +14,6 @@ The steps to building an awesome recommendation system:
 
 Let's train [Facebook AI's DLRM](https://arxiv.org/abs/1906.00091) on the edge. DLRM has been a standard baseline for all neural network based recommendation models.
 
-
-**Download and extract** the Kaggle Criteo dataset from [Google Drive](https://drive.google.com/file/d/17K5ntN30LbMWJ2gHHSkwCGHEcAjShm2_/view?usp=sharing)
-
-```bash
-mkdir criteo; cd criteo
-gdown https://drive.google.com/file/d/17K5ntN30LbMWJ2gHHSkwCGHEcAjShm2_
-tar -xf dac.tar.gz
-```
-
 Clone this repo and change the argument `datafile` in [configs/dlrm.yml](configs/dlrm.yml) to the above path.
 ```bash
 git clone https://github.com/NimbleEdge/RecoEdge
