@@ -26,7 +26,7 @@ class CommunicationManager:
         self.com_manager = registry.construct('communications', config_dict)
         self.com_manager.add_observer(self)
         self.message_handler_dict = dict()
-        self.queue = asyncio.Queue()        
+        self.queue = asyncio.Queue()       
 
     def register_queue(self, receving_id):
         dic = CommunicationStream.get_global_hash_map()
@@ -36,7 +36,8 @@ class CommunicationManager:
             dic[receving_id] = self.queue
     
     def run(self):
-        self.com_manager.handle_receive_message()
+        self.loop = asyncio.get_current_loop()
+        self.loop.create_task(message_handler())
 
     async def send_message(self, message, block=False):
         # message includes reciever id and sender id
@@ -45,16 +46,25 @@ class CommunicationManager:
             return await self.com_manager.recieve()
         else:
             return
-                
-    async def recieve(self):
-        while True:
-            message = await self.queue.get()
-            # process the token received from a producer
-            self.queue.task_done()
-            print("Token Consumed . . ./n")
+
+    async def recieve(self, request_id):
+        loop = asyncio.get_current_loop() 
+        future = loop.create_future()
+        self.message_handler_dict[request_id] = future
+        return await future
         
     def finish(self):
-        self.com_manager.stop_receive_message()
+        self.loop.stop()
+        self.com_manager.close()
+
+    async def message_handler(self):
+        while True:
+            message = await self.queue.get()
+            if message.get_request_id() in self.message_handler_dict:
+                future = self.message_handler_dict[message.get_request_id()]
+                future.set_result(message)
+            else:
+                raise LookupError('{} not in the message dictionary'.format(message.get_request_id()))  
 
     def add_to_message_queue(self, message):
         self.queue.put(message)
