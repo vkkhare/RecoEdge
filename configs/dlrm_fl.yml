@@ -34,18 +34,19 @@ model :
     dataset_config :
       name : "kaggle"
       dataset_multiprocessing : True
+  
+multiprocessing:
+  name : "MPI"
 
-
-communications:
   gpu_map:
     host1: [0, 2]
     host2: [1, 0, 1]
     host3: [1, 1, 0, 1]
     host4: [0, 1, 0, 0, 0, 1, 0, 2]
   
-process_manager:
-  max_jobs_per_process: 10
-  comm_manager_config : []
+  comm_manager_config : 
+    name : "ZeroMQ"
+    port : 8000
 
 train :
   name : dlrm
