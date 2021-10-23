@@ -44,6 +44,9 @@ class DLRMPreprocessor(PreProcessor):
 
     def preprocess_data(self):
         self.dataset_processor.process_data()
+        self.m_den = self.dataset_processor.m_den
+        self.n_emb = self.dataset_processor.n_emb
+        self.ln_emb = self.dataset_processor.ln_emb
 
     def load(self):
         self.dataset_processor.load()

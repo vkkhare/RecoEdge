@@ -1,9 +1,9 @@
-
-from fedrec.preprocessor import PreProcessor
-from typing import Dict
 from abc import ABC, abstractmethod
+from typing import Dict
+
 import attr
 import torch
+from fedrec.preprocessor import PreProcessor
 from fedrec.utilities import random_state, registry
 from fedrec.utilities.logger import BaseLogger
 
@@ -29,7 +29,6 @@ class BaseTrainer(ABC, random_state.Reproducible):
         self._optimizer = None
         self._saver = None
 
-
     def update_state(self, model_state=None, optimizer_state=None, model_preproc=None):
         if model_state is not None:
             self.model.load_state_dict(model_state)
@@ -44,34 +43,10 @@ class BaseTrainer(ABC, random_state.Reproducible):
         self._saver = None
 
     @property
-    def model(self):
-        if self._model is not None:
-            return self._model
-
-        if self.model_preproc is None:
-            raise ValueError("Initiate dataset before creating model")
-
-        with self.model_random:
-            # 1. Construct model
-            self._model = registry.construct(
-                'model', self.config_dict['model'],
-                preprocessor=self.model_preproc,
-                unused_keys=('name', 'preproc')
-            )
-            if torch.cuda.is_available():
-                self._model.cuda()
-        return self._model
-
-    @property
-    @abstractmethod
-    def optimizer(self):
-        pass
-
-    @property
     @abstractmethod
     def data_loaders(self):
         pass
-    
+
     @abstractmethod
     def reset_loaders(self):
         self._data_loaders = {}

@@ -9,7 +9,7 @@ class Jobber:
     def __init__(self, trainer, logger) -> None:
         self.logger = logger
         self.trainer: BaseTrainer = trainer
-        self.trainer_funcs = [func  for func in dir(self.trainer) if callable(getattr(self.trainer, func))]
+        self.trainer_funcs = [func for func in dir(self.trainer) if callable(getattr(self.trainer, func))]
 
     def run(self, message):
         job_type = message.JOB_TYPE

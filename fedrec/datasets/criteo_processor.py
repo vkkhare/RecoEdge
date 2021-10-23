@@ -337,6 +337,16 @@ class CriteoDataProcessor:
             y=y,
             counts=counts,
         )
+        self.m_den = X_int.shape[1]  # den_fea
+        self.n_emb = len(counts)
+        # enforce maximum limit on number of vectors per embedding
+        if self.max_ind_range > 0:
+            self.ln_emb = np.array(list(map(
+                lambda x: x if x < self.max_ind_range else self.max_ind_range,
+                counts))
+            )
+        else:
+            self.ln_emb = np.array(counts)
         return self.d_path + o_filename + ".npz"
 
     def load(self):
