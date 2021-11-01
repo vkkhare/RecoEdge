@@ -2,8 +2,9 @@ import torch
 from fedrec.utilities import registry
 from torch.optim import Optimizer
 
-registry.load('optimizer','adam')(torch.optim.Adam)
-registry.load('optimizer','sparse_adam')(torch.optim.SparseAdam)
+registry.load('optimizer', 'adam')(torch.optim.Adam)
+registry.load('optimizer', 'sparse_adam')(torch.optim.SparseAdam)
+
 
 @registry.load("optimizer", "rwsadagrad")
 class RWSAdagrad(Optimizer):

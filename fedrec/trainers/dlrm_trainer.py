@@ -49,7 +49,7 @@ class DLRMTrainer(BaseTrainer):
             self,
             config_dict: Dict,
             train_config: DLRMTrainConfig,
-            logger: BaseLogger, 
+            logger: BaseLogger,
             model_preproc: PreProcessor,) -> None:
 
         self.train_config = train_config

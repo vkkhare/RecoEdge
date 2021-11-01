@@ -2,14 +2,15 @@ import torch
 import socket
 import logging
 
+
 def map_to_cuda(args, device=None, **kwargs):
-    if isinstance(args,(list, tuple)):
+    if isinstance(args, (list, tuple)):
         return [map_to_cuda(arg, device, **kwargs) for arg in args]
     elif isinstance(args, dict):
-        return { k: map_to_cuda(v, device, **kwargs) for k,v in args.items()}
-    elif isinstance(args,torch.Tensor):
+        return {k: map_to_cuda(v, device, **kwargs) for k, v in args.items()}
+    elif isinstance(args, torch.Tensor):
         return args.cuda(device, **kwargs)
-    else :
+    else:
         raise TypeError("unsupported type for cuda migration")
 
 
@@ -18,11 +19,14 @@ def map_to_list(model_params):
         model_params[k] = model_params[k].detach().numpy().tolist()
     return model_params
 
+
 def mapping_processes_to_gpus(gpu_config, process_id, worker_number):
     if gpu_config == None:
         device = torch.device("cpu")
-        logging.info(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        logging.info(" ################## You do not indicate gpu_util_file, will use CPU training  #################")
+        logging.info(
+            " !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        logging.info(
+            " ################## You do not indicate gpu_util_file, will use CPU training  #################")
         logging.info(device)
         # return gpu_util_map[process_id][1]
         return device
@@ -39,7 +43,8 @@ def mapping_processes_to_gpus(gpu_config, process_id, worker_number):
             process_id, gpu_util_map[process_id][0], socket.gethostname(), gpu_util_map[process_id][1]))
         assert i == worker_number
 
-        device = torch.device("cuda:" + str(gpu_util_map[process_id][1]) if torch.cuda.is_available() else "cpu")
+        device = torch.device(
+            "cuda:" + str(gpu_util_map[process_id][1]) if torch.cuda.is_available() else "cpu")
         logging.info(device)
         # return gpu_util_map[process_id][1]
         return device

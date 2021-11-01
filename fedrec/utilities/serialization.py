@@ -7,13 +7,14 @@ import argparse
 import pickle
 from warnings import warn
 
+
 def load_tensor(file, device=None):
     t = torch.load(file)
     if device is not None:
         t = t.to(device)
     return t
 
-  
+
 def to_dict_with_sorted_values(d, key=None):
     return {k: sorted(v, key=key) for k, v in d.items()}
 
@@ -29,6 +30,7 @@ def to_dict_with_set_values(d):
                 hashable_v.append(v_elem)
         result[k] = set(hashable_v)
     return result
+
 
 def save_tensor(tensor, file):
     pathlib.Path(file).parent.mkdir(parents=True, exist_ok=True)
@@ -60,6 +62,7 @@ def tuplify(dictionary):
 def dictify(iterable):
     assert isinstance(iterable, Iterable)
     return {v: i for i, v in enumerate(iterable)}
+
 
 def dash_separated_ints(value):
     vals = value.split("-")
@@ -96,9 +99,11 @@ def serialize_object(obj):
         warn(f"Pickle is being used to serialize object of type: {type(obj)}")
         return pickle.dumps(obj)
 
+
 def deserialize_object(obj):
     if isinstance(obj, str):
         return obj
     else:
-        warn(f"Pickle is being used to deserialize object of type: {type(obj)}")
+        warn(
+            f"Pickle is being used to deserialize object of type: {type(obj)}")
         return pickle.loads(obj)

@@ -5,14 +5,17 @@ from fedrec.utilities import registry
 from torch.optim import Optimizer
 from torch.tensor import Tensor
 
+
 class _RequiredParameter(object):
     """Singleton class representing a required parameter for an Optimizer."""
+
     def __repr__(self):
         return "<required parameter>"
 
+
 required = _RequiredParameter()
 
-## Correcting SGD for sparse operations
+
 def sgd(params: List[Tensor],
         d_p_list: List[Tensor],
         momentum_buffer_list: List[Optional[Tensor]],
@@ -22,7 +25,9 @@ def sgd(params: List[Tensor],
         lr: float,
         dampening: float,
         nesterov: bool):
-    r"""Functional API that performs SGD algorithm computation.
+    r"""Correcting SGD for sparse operations
+
+    Functional API that performs SGD algorithm computation.
     See :class:`~torch.optim.SGD` for details.
     """
 
@@ -51,7 +56,8 @@ def sgd(params: List[Tensor],
 
 # registry.load('optimizer','sgd')(torch.optim.SGD)
 
-@registry.load('optimizer','sgd')
+
+@registry.load('optimizer', 'sgd')
 class SGD(Optimizer):
     r"""Implements stochastic gradient descent (optionally with momentum).
     Nesterov momentum is based on the formula from
@@ -98,12 +104,14 @@ class SGD(Optimizer):
         if momentum < 0.0:
             raise ValueError("Invalid momentum value: {}".format(momentum))
         if weight_decay < 0.0:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(
+                "Invalid weight_decay value: {}".format(weight_decay))
 
         defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
                         weight_decay=weight_decay, nesterov=nesterov)
         if nesterov and (momentum <= 0 or dampening != 0):
-            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+            raise ValueError(
+                "Nesterov momentum requires a momentum and zero dampening")
         super(SGD, self).__init__(params, defaults)
 
     def __setstate__(self, state):
@@ -145,13 +153,13 @@ class SGD(Optimizer):
                         momentum_buffer_list.append(state['momentum_buffer'])
 
             sgd(params_with_grad,
-                  d_p_list,
-                  momentum_buffer_list,
-                  weight_decay=weight_decay,
-                  momentum=momentum,
-                  lr=lr,
-                  dampening=dampening,
-                  nesterov=nesterov)
+                d_p_list,
+                momentum_buffer_list,
+                weight_decay=weight_decay,
+                momentum=momentum,
+                lr=lr,
+                dampening=dampening,
+                nesterov=nesterov)
 
             # update momentum_buffers in state
             for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):

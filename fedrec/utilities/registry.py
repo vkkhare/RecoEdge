@@ -5,6 +5,7 @@ import sys
 
 LOOKUP_DICT = collections.defaultdict(dict)
 
+
 def load(kind, name):
     registry = LOOKUP_DICT[kind]
 

@@ -24,7 +24,7 @@ class MPIProcess:
             job_request = self.process_comm_manager.receive_message()
             if job_request.JOB_TYPE == "STOP":
                 return
-            
+
             result = self.jobber.run(job_request)
             self.publish(result)
 

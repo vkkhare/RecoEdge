@@ -26,6 +26,7 @@ class RandomState:
 
 class RandomContext:
     '''Save and restore state of PyTorch, NumPy, Python RNGs.'''
+
     def __init__(self, seed=None):
         outside_state = RandomState()
 
@@ -41,7 +42,7 @@ class RandomContext:
         outside_state.restore()
 
         self._active = False
-    
+
     def __enter__(self):
         if self._active:
             raise Exception('RandomContext can be active only once')
@@ -61,6 +62,7 @@ class RandomContext:
 
         self._active = False
 
+
 @attr.s
 class RandomizationConfig:
     # Seed for RNG used in shuffling the training data.
@@ -71,8 +73,9 @@ class RandomizationConfig:
     # Only relevant with internal randomness in the model, e.g. with dropout.
     model_seed = attr.ib(default=None)
 
+
 class Reproducible:
-    def __init__(self, config : RandomizationConfig) -> None:
+    def __init__(self, config: RandomizationConfig) -> None:
         self.data_random = RandomContext(
             config.data_seed)
         self.model_random = RandomContext(
