@@ -18,6 +18,9 @@ class PreProcessor(ABC):
     def load(self):
         pass
 
+    def load_data_description(self):
+        pass
+
     @abstractmethod
     def datasets(self, *splits):
         pass
@@ -43,24 +46,26 @@ class DLRMPreprocessor(PreProcessor):
         self.ln_emb = None
 
     def preprocess_data(self):
+        if not self.m_den:
+            self.load_data_description()
         self.dataset_processor.process_data()
+
+    def load_data_description(self):
+        self.dataset_processor.load_data_description()
         self.m_den = self.dataset_processor.m_den
         self.n_emb = self.dataset_processor.n_emb
         self.ln_emb = self.dataset_processor.ln_emb
 
     def load(self):
         self.dataset_processor.load()
-        self.m_den = self.dataset_processor.m_den
-        self.n_emb = self.dataset_processor.n_emb
-        self.ln_emb = self.dataset_processor.ln_emb
-    
+
     def datasets(self, *splits):
         assert all([isinstance(split, str) for split in splits])
         return {
             split: self.dataset_processor.dataset(split)
             for split in splits
         }
-    
+
     def dataset(self, split):
         assert isinstance(split, str)
         return self.dataset_processor.dataset(split)

@@ -3,9 +3,10 @@ import attr
 from abc import ABC, abstractclassmethod, abstractmethod
 
 import torch
+from fedrec.preprocessor import PreProcessor
 from fedrec.utilities import registry
 from fedrec.utilities.logger import BaseLogger
-from fedrec.utilities.random_state import Reproducible
+from fedrec.utilities.random_state import RandomizationConfig, Reproducible
 
 
 @attr.s(kw_only=True)
@@ -47,12 +48,15 @@ class BaseActor(Reproducible, ABC):
     """
 
     def __init__(self,
-                 model_config: Dict,
                  worker_index: int,
-                 logger : BaseLogger,
+                 model_config: Dict,
+                 randomization_config: RandomizationConfig,
+                 logger: BaseLogger,
                  persistent_storage: str = None,
                  is_mobile: bool = True,
                  round_idx: int = 0):
+
+        super().__init__(randomization_config)
         self.round_idx = round_idx
         self.worker_index = worker_index
         self.is_mobile = is_mobile
@@ -60,35 +64,20 @@ class BaseActor(Reproducible, ABC):
 
         self.logger = logger
         self.model_config = model_config
-        self.model_preproc = model_preproc
+
+        modelCls = registry.lookup('model', model_config)
+        self.model_preproc: PreProcessor = registry.instantiate(
+            modelCls.Preproc,
+            model_config['preproc'])
 
         self._model = None
         self._optimizer = None
         self._saver = None
 
     @property
-    def model(self):
-        if self._model is not None:
-            return self._model
-
-        if self.model_preproc is None:
-            raise ValueError("Initiate dataset before creating model")
-
-        with self.model_random:
-            # 1. Construct model
-            self._model = registry.construct(
-                'model', self.config_dict['model'],
-                preprocessor=self.model_preproc,
-                unused_keys=('name', 'preproc')
-            )
-            if torch.cuda.is_available():
-                self._model.cuda()
-        return self._model
-
-    @property
     @abstractmethod
     def optimizer(self):
-        pass
+        return None
 
     @abstractmethod
     def serialize(self):
@@ -98,7 +87,23 @@ class BaseActor(Reproducible, ABC):
     def load_worker(cls, *args, **kwargs):
         raise NotImplementedError
 
-    @abstractmethod
+    @property
+    def model(self):
+        if self._model is not None:
+            return self._model
+
+        with self.model_random:
+            # 1. Construct model
+            self.model_preproc.load_data_description()
+            self._model = registry.construct(
+                'model', self.model_config,
+                preprocessor=self.model_preproc,
+                unused_keys=('name', 'preproc')
+            )
+            if torch.cuda.is_available():
+                self._model.cuda()
+        return self._model
+
     def _get_model_params(self):
         """Get the current model parameters for the trainer .
 
@@ -107,9 +112,8 @@ class BaseActor(Reproducible, ABC):
         Dict: 
             A dict containing the model weights.
         """
-        raise NotImplementedError
+        return self.model.cpu().state_dict()
 
-    @abstractmethod
     def update_model(self, weights):
         """Update the model weights with weights.
 
@@ -118,4 +122,4 @@ class BaseActor(Reproducible, ABC):
         weights : Dict
             The model weights to be loaded into the optimizer
         """
-        raise NotImplementedError
+        self.model.load_state_dict(weights)

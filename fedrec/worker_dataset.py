@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 
 class WorkerDataset:
     def __init__(self) -> None:

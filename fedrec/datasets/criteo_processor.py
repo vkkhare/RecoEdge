@@ -249,7 +249,7 @@ class CriteoDataProcessor:
                                        self.days
                                        ),
                                  kwargs={
-                                     "sub_sample_rate" : self.sub_sample_rate,
+                                     "sub_sample_rate": self.sub_sample_rate,
                                      "convertDictsDay": convertDictsDay,
                                      "resultDay": resultDay
                                  }) for i in range(0, self.days)]
@@ -298,7 +298,7 @@ class CriteoDataProcessor:
             # continuous features
             X_int = data["X_int"]
             X_int[X_int < 0] = 0
-            
+
             np.savez_compressed(
                 filename_i,
                 X_cat=np.transpose(X_cat_t),  # transpose of the data
@@ -347,7 +347,19 @@ class CriteoDataProcessor:
             )
         else:
             self.ln_emb = np.array(counts)
+
+        np.savez_compressed(self.d_path + o_filename + "_data_description.npz",
+                            m_den=self.m_den, n_emb=self.n_emb, ln_emb=self.ln_emb)
         return self.d_path + o_filename + ".npz"
+
+    def load_data_description(self):
+        if not os.path.exists(str(self.d_path + self.output_file + ".npz")):
+            assert False, "data not processed"
+
+        with np.load(self.d_path + self.output_file + "_data_description.npz") as data:
+            self.m_den = data["m_den"]
+            self.n_emb = data["n_emb"]
+            self.ln_emb = data["ln_emb"]
 
     def load(self):
         if not os.path.exists(str(self.d_path + self.output_file + ".npz")):
@@ -355,7 +367,8 @@ class CriteoDataProcessor:
 
         # pre-process data if needed
         # WARNNING: when memory mapping is used we get a collection of files
-        print("Reading pre-processed data=%s" % (str(self.d_path + self.output_file + ".npz")))
+        print("Reading pre-processed data=%s" %
+              (str(self.d_path + self.output_file + ".npz")))
         file = str(self.d_path + self.output_file + ".npz")
 
         # get a number of samples per day

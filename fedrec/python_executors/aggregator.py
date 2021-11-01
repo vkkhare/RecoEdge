@@ -4,9 +4,9 @@ from typing import Dict
 
 import attr
 import numpy as np
-import torch
 from fedrec.python_executors.base_actor import ActorState, BaseActor
 from fedrec.utilities import registry
+from fedrec.utilities.logger import BaseLogger
 from fedrec.utilities.random_state import RandomContext
 
 
@@ -55,7 +55,8 @@ class AggregatorState(ActorState):
     neighbours : {"in_neigh" : List[`Neighbour`], "out_neigh" : List[`Neighbour`]]
         The states of in_neighbours and out_neighbours of the worker when last synced
     """
-    neighbours = attr.ib(dict)
+    in_neighbours = attr.ib(dict)
+    out_neighbours = attr.ib(dict)
 
 
 class Aggregator(BaseActor, ABC):
@@ -80,33 +81,17 @@ class Aggregator(BaseActor, ABC):
 
     def __init__(self,
                  worker_index: int,
+                 model_config: Dict,
+                 logger: BaseLogger,
                  in_neighbours: Dict[int, Neighbour],
                  out_neighbours: Dict[int, Neighbour],
                  persistent_storage: str = None,
                  is_mobile: bool = True,
                  round_idx: int = 0):
-        super().__init__(worker_index, persistent_storage, is_mobile, round_idx)
+        super().__init__(worker_index, model_config, logger,
+                         persistent_storage, is_mobile, round_idx)
         self.in_neighbours = in_neighbours
         self.out_neighbours = out_neighbours
-
-    @property
-    def model(self):
-        if self._model is not None:
-            return self._model
-
-        if self.model_preproc is None:
-            raise ValueError("Initiate dataset before creating model")
-
-        with self.model_random:
-            # 1. Construct model
-            self._model = registry.construct(
-                'model', self.config_dict['model'],
-                preprocessor=self.model_preproc,
-                unused_keys=('name', 'preproc')
-            )
-            if torch.cuda.is_available():
-                self._model.cuda()
-        return self._model
 
     @abstractmethod
     def aggregate(self, *args, **kwargs):
@@ -141,12 +126,13 @@ class Aggregator(BaseActor, ABC):
                 'model': self._get_model_params(),
                 'step': self.round_idx
             },
-            storage=self.persistent_storage
+            storage=self.persistent_storage,
+            in_neighbours=self.in_neighbours,
+            out_neighbours=self.out_neighbours
         )
 
-    @classmethod
     def load_worker(
-            cls,
+            self,
             state: AggregatorState):
         """Constructs a aggregator object from the state.
 
@@ -155,27 +141,14 @@ class Aggregator(BaseActor, ABC):
         state : AggregatorState
             AggregatorState containing the weights
         """
-        trainer.(state.state_dict['model'])
-
-    def _get_model_params(self):
-        """Get the current model parameters for the trainer .
-
-        Returns
-        -------
-        Dict: 
-            A dict containing the model weights.
-        """
-        return self.model.cpu().state_dict()
-
-    def update_model(self, weights):
-        """Update the model weights with weights.
-
-        Parameters
-        ----------
-        weights : Dict
-            The model weights to be loaded into the optimizer
-        """
-        self.model.load_state_dict(weights)
+        self.worker_index = state.id
+        self.persistent_storage = state.storage
+        self.in_neighbours = state.in_neighbours
+        self.out_neighbours = state.out_neighbours
+        self.round_idx = state.round_idx
+        self.model.load_state_dict(state.state_dict['model'])
+        if self.optimizer is not None:
+            self.optimizer.load_state_dict(state.state_dict['optimizer'])
 
 
 @registry.load('fl_algo', 'fed_avg')
