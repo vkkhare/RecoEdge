@@ -1,14 +1,14 @@
 from setuptools import setup
 
 setup(
-    name='RecoEdge',
+    name='recoedge',
     version='0.0.1',    
     description='A simulator for federated learning',
     url='https://github.com/NimbleEdge/RecoEdge',
     author='Varun Kumar Khare',
     author_email='vkkhare@nimbleedge.ai',
     license='Apache 2-clause',
-    packages=['fedrec'],
+    packages=['fedrec','fl_strategies','experiments'],
     install_requires=['numpy'],
 
     classifiers=[

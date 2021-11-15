@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from typing import Callable, Dict
 
 import yaml
+import sys
 from fedrec.multiprocessing.jobber import Jobber
 from fedrec.multiprocessing.process_manager import ProcessManager
 
@@ -22,10 +23,16 @@ class JobExecutor(Reproducible):
                  **kwargs) -> None:
         """ Class responsible for running aggregator/trainer on a single node.
         """
+        super().__init__()
+
         # Construct trainer and do training
         self.config = config
-        self.worker = actorCls(0, config["model"], actor_config, logger, **kwargs)
-
+        if not set(['experiments', 'fedrec', 'fl_strategies']).issubset(set(sys.modules.values())):
+            import experiments
+            import fedrec
+            import fl_strategies
+        self.worker = actorCls(
+            0, config["model"], actor_config, logger, **kwargs)
         self.jobber = Jobber(
             self.worker, logger, config["multiprocessing"]["communications"])
 
