@@ -81,6 +81,8 @@ class BaseActor(Reproducible, ABC):
         self._model = None
         self._optimizer = None
         self._saver = None
+        self.worker =  None
+        self.worker_funcs = {}
 
     @property
     def optimizer(self):
@@ -130,3 +132,6 @@ class BaseActor(Reproducible, ABC):
             The model weights to be loaded into the optimizer
         """
         self.model.load_state_dict(weights)
+
+    def run(func_name, *args, **kwargs):
+        pass

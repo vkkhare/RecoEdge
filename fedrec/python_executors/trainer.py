@@ -64,9 +64,9 @@ class Trainer(BaseActor, ABC):
         self.local_training_steps = 0
         self._data_loaders = {}
         #TODO update trainer logic to avoid double model initialization
-        self.trainer = registry.construct('trainer', model_config['model'], **model_config['train'])
-        self.trainer_funcs = {func.__name__: func for func in dir(
-            self.trainer) if callable(func)}
+        self.worker = registry.construct('trainer', model_config['model'], **model_config['train'])
+        self.worker_funcs = {func.__name__: func for func in dir(
+            self.worker) if callable(func)}
 
     def reset_loaders(self):
         self._data_loaders = {}
@@ -133,8 +133,8 @@ class Trainer(BaseActor, ABC):
 
         func_name : Name of the function to run in the trainer
         """
-        if func_name in self.trainer_funcs:
-            self.trainer_funcs[func_name](*args, **kwargs)
+        if func_name in self.worker_funcs:
+            self.worker_funcs[func_name](*args, **kwargs)
         else:
             raise ValueError(
-                f"Job type <{func_name}> not part of worker <{self.trainer.__class__.__name__}> functions")
+                f"Job type <{func_name}> not part of worker <{self.worker.__class__.__name__}> functions")

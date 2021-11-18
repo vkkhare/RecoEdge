@@ -49,11 +49,11 @@ multiprocessing:
     producer : True
     consumer_port : 9092
     consumer_url : "127.0.0.1"
-    consumer_topic : 'My-topic'
-    cosnumer_group_id : 'My-group-id'
+    consumer_topic : 'testing1'
+    consumer_group_id : 'test-consumer-group'
     producer_port : 9092
     producer_url : "127.0.0.1"
-    producer_topic : 'My-topic'
+    producer_topic : 'testing1'
 
 train :
   name : dlrm
@@ -83,3 +83,9 @@ train :
     num_warmup_steps : 30000
     decay_start_step : 150000
     num_decay_steps : 150000
+
+aggregator:
+  name : "fed_avg"
+  data_seed : 100
+  init_seed : 100
+  model_seed : 100

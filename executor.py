@@ -44,7 +44,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--logdir", type=str, default=None)
-
+    parser.add_argument("--logger", action="store_true", default=False)
     args = parser.parse_args()
 
     with open(args.config, "r") as stream:
@@ -59,14 +59,14 @@ def main():
         logger = NoOpLogger()
 
     process_manager: ProcessManager = registry.construct(
-        "process_manager", config_dict["multiprocessing"]["distribution"])
+        "process_manager", config_dict["multiprocessing"]["process_manager"])
 
     process_manager.distribute(JobExecutor, Aggregator.__name__,
                                config_dict["multiprocessing"]["num_aggregators"],
-                               Aggregator, config_dict, logger)
+                               actorCls=Aggregator, config=config_dict, logger=logger)
     process_manager.distribute(JobExecutor, Trainer.__name__,
                                config_dict["multiprocessing"]["num_trainers"],
-                               Trainer, config_dict, logger)
+                               actorCls=Trainer, config=config_dict, logger=logger)
 
     process_manager.start(Aggregator.__name__, "run")
     process_manager.start(Trainer.__name__, "run")

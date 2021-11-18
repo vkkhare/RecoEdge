@@ -4,6 +4,7 @@ from typing import Dict
 import attr
 from fedrec.python_executors.base_actor import (ActorConfig, ActorState,
                                                 BaseActor)
+from fedrec.utilities import registry
 from fedrec.utilities.logger import BaseLogger
 
 
@@ -97,24 +98,11 @@ class Aggregator(BaseActor, ABC):
                          persistent_storage, is_mobile, round_idx)
         self.in_neighbours = in_neighbours
         self.out_neighbours = out_neighbours
-
-    @abstractmethod
-    def aggregate(self, *args, **kwargs):
-        """
-        Aggregates the data from the actors.
-
-        :return: A dictionary containing the aggregated data.
-        """
-        raise NotImplementedError("Aggregation strategy not defined")
-
-    @abstractmethod
-    def sample_clients(self, *args, **kwargs):
-        """
-        Sample the clients from the in_neighbours.
-
-        :return: A list of client ids.
-        """
-        raise NotImplementedError("Sampling strategy not defined")
+        #TODO update trainer logic to avoid double model initialization
+        self.worker = registry.construct('aggregator', model_config['aggregator'],
+                                        in_neighbours=in_neighbours, out_neighbours=out_neighbours)
+        self.worker_funcs = {func.__name__: func for func in dir(
+            self.worker) if callable(func)}
 
     def serialize(self):
         """Serialise the state of the worker to a AggregatorState.
@@ -154,3 +142,15 @@ class Aggregator(BaseActor, ABC):
         self.model.load_state_dict(state.state_dict['model'])
         if self.optimizer is not None:
             self.optimizer.load_state_dict(state.state_dict['optimizer'])
+
+    def run(self, func_name, *args, **kwargs):
+        """
+        Run the aggregation.
+
+        func_name : Name of the function to run in the aggregation
+        """
+        if func_name in self.worker_funcs:
+            self.worker_funcs[func_name](*args, **kwargs)
+        else:
+            raise ValueError(
+                f"Job type <{func_name}> not part of worker <{self.worker.__class__.__name__}> functions")

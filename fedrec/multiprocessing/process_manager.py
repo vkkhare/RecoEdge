@@ -54,6 +54,8 @@ class RayProcessManager(ProcessManager):
 
     def distribute(self, runnable, type: str, num_instances: int, *args, **kwargs) -> None:
         dist_runnable = ray.remote(runnable)
+        print(args)
+        print(kwargs)
         new_runs = [dist_runnable.remote(*args, **kwargs)
                     for _ in range(num_instances)]
         self.workers[type] += new_runs

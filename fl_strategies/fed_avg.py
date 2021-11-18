@@ -1,28 +1,22 @@
+import logging
 from typing import Dict
 
 import numpy as np
-from fedrec.python_executors.aggregator import (Aggregator, AggregatorConfig,
-                                                Neighbour)
+from fedrec.python_executors.aggregator import Neighbour
 from fedrec.utilities import registry
-from fedrec.utilities.logger import BaseLogger
 from fedrec.utilities.random_state import RandomContext
 
 
 @registry.load('aggregator', 'fed_avg')
-class FedAvg(Aggregator):
+class FedAvg:
     def __init__(self,
-                 worker_index: int,
-                 model_config: Dict,
-                 aggregator_config: AggregatorConfig,
-                 logger: BaseLogger,
                  in_neighbours: Dict[int, Neighbour] = None,
-                 out_neighbours: Dict[int, Neighbour] = None,
-                 persistent_storage: str = None,
-                 is_mobile: bool = True,
-                 round_idx: int = 0):
-        super().__init__(worker_index, model_config, aggregator_config, logger,
-                         in_neighbours, out_neighbours, persistent_storage,
-                         is_mobile, round_idx)
+                 out_neighbours: Dict[int, Neighbour] = None):
+        self.in_neighbours = in_neighbours
+        self.out_neighbours = out_neighbours
+
+    def test_run(self, arg1, arg2):
+        return arg1 + arg2
 
     def aggregate(self, neighbour_ids):
         model_list = [

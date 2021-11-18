@@ -38,11 +38,11 @@ class Jobber:
         try:
             while True:
                 print("Waiting for job request")
-                job_request: JobSubmitMessage = self.process_comm_manager.receive_message()
+                job_request: JobSubmitMessage = self.comm_manager.receive_message()
                 result = self.execute(job_request)
                 self.publish(result)
         except Exception as e:
-            self.logger.error(f"Exception {e}")
+            print(f"Exception {e}")
             self.stop()
 
     def execute(self, message: JobSubmitMessage):
@@ -71,4 +71,4 @@ class Jobber:
         self.comm_manager.send_message(job_result.result())
 
     def stop(self) -> None:
-        self.comm_manager.stop()
+        self.comm_manager.finish()
