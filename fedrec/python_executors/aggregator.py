@@ -1,18 +1,11 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Dict
 
 import attr
-from fedrec.python_executors.base_actor import (ActorConfig, ActorState,
+from fedrec.python_executors.base_actor import (ActorState,
                                                 BaseActor)
 from fedrec.utilities import registry
 from fedrec.utilities.logger import BaseLogger
-
-
-@attr.s
-class AggregatorConfig(ActorConfig):
-    """
-    AggregatorConfig is a class that holds the configuration for an aggregator.
-    """
 
 
 @attr.s
@@ -86,21 +79,20 @@ class Aggregator(BaseActor, ABC):
 
     def __init__(self,
                  worker_index: int,
-                 model_config: Dict,
-                 aggregator_config: AggregatorConfig,
+                 config: Dict,
                  logger: BaseLogger,
                  in_neighbours: Dict[int, Neighbour] = None,
                  out_neighbours: Dict[int, Neighbour] = None,
                  persistent_storage: str = None,
                  is_mobile: bool = True,
                  round_idx: int = 0):
-        super().__init__(worker_index, model_config, aggregator_config, logger,
+        super().__init__(worker_index, config, logger,
                          persistent_storage, is_mobile, round_idx)
         self.in_neighbours = in_neighbours
         self.out_neighbours = out_neighbours
-        #TODO update trainer logic to avoid double model initialization
-        self.worker = registry.construct('aggregator', model_config['aggregator'],
-                                        in_neighbours=in_neighbours, out_neighbours=out_neighbours)
+        # TODO update trainer logic to avoid double model initialization
+        self.worker = registry.construct('aggregator', config['aggregator'],
+                                         in_neighbours=in_neighbours, out_neighbours=out_neighbours)
         self.worker_funcs = {func.__name__: func for func in dir(
             self.worker) if callable(func)}
 

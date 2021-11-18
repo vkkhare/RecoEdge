@@ -1,5 +1,6 @@
 from abc import ABC
 import atexit
+from collections import defaultdict
 from typing import Any, Dict
 
 import ray
@@ -14,7 +15,7 @@ class ProcessManager(ABC):
 
     def __init__(self) -> None:
         super().__init__()
-        self.workers = {}
+        self.workers = defaultdict(list)
 
     def distribute(self):
         pass
@@ -54,8 +55,6 @@ class RayProcessManager(ProcessManager):
 
     def distribute(self, runnable, type: str, num_instances: int, *args, **kwargs) -> None:
         dist_runnable = ray.remote(runnable)
-        print(args)
-        print(kwargs)
         new_runs = [dist_runnable.remote(*args, **kwargs)
                     for _ in range(num_instances)]
         self.workers[type] += new_runs

@@ -1,5 +1,6 @@
 import random
 import sys
+from typing import Dict
 import attr
 
 import numpy as np
@@ -75,10 +76,10 @@ class RandomizationConfig:
 
 
 class Reproducible:
-    def __init__(self, config: RandomizationConfig) -> None:
+    def __init__(self, config: Dict) -> None:
         self.data_random = RandomContext(
-            config.data_seed)
+            config["data_seed"])
         self.model_random = RandomContext(
-            config.model_seed)
+            config["model_seed"])
         self.init_random = RandomContext(
-            config.init_seed)
+            config["init_seed"])

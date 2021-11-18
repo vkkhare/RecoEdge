@@ -3,7 +3,6 @@ from typing import Dict
 import attr
 import numpy as np
 import torch
-from fedrec.python_executors.base_actor import ActorConfig
 from fedrec.python_executors.trainer import Trainer
 from fedrec.preprocessor import PreProcessor
 from fedrec.utilities import registry
@@ -13,10 +12,12 @@ from fedrec.utilities.logger import BaseLogger
 from sklearn import metrics
 from tqdm import tqdm
 
+from fedrec.utilities.random_state import Reproducible
+
 
 @registry.load('train_config', 'dlrm_std')
 @attr.s
-class DLRMTrainConfig(ActorConfig):
+class DLRMTrainConfig:
     eval_every_n = attr.ib(default=10000)
     report_every_n = attr.ib(default=10)
     save_every_n = attr.ib(default=2000)
@@ -43,17 +44,25 @@ class DLRMTrainConfig(ActorConfig):
 
 
 @registry.load('trainer', 'dlrm')
-class DLRMTrainer(Trainer):
+class DLRMTrainer(Reproducible):
 
     def __init__(
             self,
-            config_dict: Dict,
-            train_config: DLRMTrainConfig,
-            logger: BaseLogger,
-            model_preproc: PreProcessor,) -> None:
+            config: Dict,
+            logger: BaseLogger) -> None:
 
-        self.train_config = train_config
-        super().__init__(config_dict, train_config, logger, model_preproc)
+        super().__init__(config["random"])
+        self.config = config
+        self.train_config = DLRMTrainConfig(**config['config'])
+        self.logger = logger
+        modelCls = registry.lookup('model', config["model"])
+        self.model_preproc: PreProcessor = registry.instantiate(
+            modelCls.Preproc,
+            config["model"]['preproc'])
+
+        self._model = None
+        self._optimizer = None
+        self._saver = None
 
     @staticmethod
     def _yield_batches_from_epochs(loader, start_epoch):
@@ -62,6 +71,23 @@ class DLRMTrainer(Trainer):
             for batch in loader:
                 yield batch, current_epoch
             current_epoch += 1
+
+    @property
+    def model(self):
+        if self._model is not None:
+            return self._model
+
+        with self.model_random:
+            # 1. Construct model
+            self.model_preproc.load_data_description()
+            self._model = registry.construct(
+                'model', self.config,
+                preprocessor=self.model_preproc,
+                unused_keys=('name', 'preproc')
+            )
+            if torch.cuda.is_available():
+                self._model.cuda()
+        return self._model
 
     @property
     def optimizer(self):

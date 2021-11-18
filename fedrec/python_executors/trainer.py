@@ -36,7 +36,7 @@ class Trainer(BaseActor, ABC):
 
     def __init__(self,
                  worker_index: int,
-                 model_config: Dict,
+                 config: Dict,
                  logger: BaseLogger,
                  persistent_storage: str = None,
                  is_mobile: bool = True,
@@ -58,20 +58,20 @@ class Trainer(BaseActor, ABC):
             The number of datapoints in the local dataset
 
         """
-        super().__init__(worker_index, model_config, logger,
+        super().__init__(worker_index, config, logger,
                          persistent_storage, is_mobile, round_idx)
         self.local_sample_number = None
         self.local_training_steps = 0
         self._data_loaders = {}
         #TODO update trainer logic to avoid double model initialization
-        self.worker = registry.construct('trainer', model_config['model'], **model_config['train'])
+        self.worker = registry.construct('trainer', config["trainer"], logger)
         self.worker_funcs = {func.__name__: func for func in dir(
             self.worker) if callable(func)}
 
     def reset_loaders(self):
         self._data_loaders = {}
 
-    def serialise(self):
+    def serialize(self):
         """Serialise the state of the worker to a TrainerState.
 
         Returns
