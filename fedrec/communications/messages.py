@@ -1,5 +1,5 @@
 from typing import Dict, List
-
+import json
 from fedrec.python_executors.base_actor import ActorState
 
 
@@ -22,18 +22,22 @@ class JobSubmitMessage(Message):
                  job_kwargs,
                  senderid,
                  receiverid,
-                 workerState):
+                 workerstate):
         super().__init__(senderid, receiverid)
         self.job_type: str = job_type
         self.job_args: List = job_args
         self.job_kwargs: Dict = job_kwargs
-        self.workerstate: ActorState = workerState
+        self.workerstate: ActorState = workerstate
 
     def get_worker_state(self):
         return self.workerstate
 
     def get_job_type(self):
         return self.job_type
+    
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, 
+            sort_keys=True, indent=4)
 
 
 class JobResponseMessage(Message):

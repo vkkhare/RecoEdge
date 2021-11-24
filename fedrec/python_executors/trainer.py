@@ -63,10 +63,14 @@ class Trainer(BaseActor, ABC):
         self.local_sample_number = None
         self.local_training_steps = 0
         self._data_loaders = {}
-        #TODO update trainer logic to avoid double model initialization
-        self.worker = registry.construct('trainer', config["trainer"], logger)
-        self.worker_funcs = {func.__name__: func for func in dir(
-            self.worker) if callable(func)}
+        # TODO update trainer logic to avoid double model initialization
+        self.worker = registry.construct(
+            'trainer', config["trainer"], unused_keys=(), config_dict=config,  logger=logger)
+        print(f"{self.worker}")
+        # import pdb;pdb.set_trace()
+        self.worker_funcs = {"test_run" : getattr(self.worker, "test_run")}
+        # self.worker_funcs = {func: getattr(self.worker, func) for func in dir(
+        #     self.worker) if callable(getattr(self.worker, func))}
 
     def reset_loaders(self):
         self._data_loaders = {}
@@ -133,8 +137,9 @@ class Trainer(BaseActor, ABC):
 
         func_name : Name of the function to run in the trainer
         """
+        print(f"trainer, {self.worker_funcs}, {func_name}, {args}")
         if func_name in self.worker_funcs:
-            self.worker_funcs[func_name](*args, **kwargs)
+            return self.worker_funcs[func_name](*args, **kwargs)
         else:
             raise ValueError(
                 f"Job type <{func_name}> not part of worker <{self.worker.__class__.__name__}> functions")

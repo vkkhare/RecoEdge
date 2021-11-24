@@ -3,7 +3,6 @@ from typing import Dict
 import attr
 import numpy as np
 import torch
-from fedrec.python_executors.trainer import Trainer
 from fedrec.preprocessor import PreProcessor
 from fedrec.utilities import registry
 from fedrec.utilities import saver_utils as saver_mod
@@ -15,7 +14,6 @@ from tqdm import tqdm
 from fedrec.utilities.random_state import Reproducible
 
 
-@registry.load('train_config', 'dlrm_std')
 @attr.s
 class DLRMTrainConfig:
     eval_every_n = attr.ib(default=10000)
@@ -48,22 +46,30 @@ class DLRMTrainer(Reproducible):
 
     def __init__(
             self,
-            config: Dict,
+            config_dict: Dict,
             logger: BaseLogger) -> None:
 
-        super().__init__(config["random"])
-        self.config = config
-        self.train_config = DLRMTrainConfig(**config['config'])
+        super().__init__(config_dict["random"])
+        self.config_dict = config_dict
+        self.train_config = DLRMTrainConfig(**config_dict["trainer"]["config"])
         self.logger = logger
-        modelCls = registry.lookup('model', config["model"])
+        modelCls = registry.lookup('model', config_dict["model"])
         self.model_preproc: PreProcessor = registry.instantiate(
             modelCls.Preproc,
-            config["model"]['preproc'])
+            config_dict["model"]['preproc'])
 
         self._model = None
+        self._data_loaders = {}
+
         self._optimizer = None
         self._saver = None
 
+
+
+    def reset_loaders(self):
+        self._data_loaders = {}
+
+        
     @staticmethod
     def _yield_batches_from_epochs(loader, start_epoch):
         current_epoch = start_epoch
@@ -71,6 +77,10 @@ class DLRMTrainer(Reproducible):
             for batch in loader:
                 yield batch, current_epoch
             current_epoch += 1
+
+    def test_run(self, arg1, arg2):
+        print("ASfdasdf")
+        return arg1 + arg2
 
     @property
     def model(self):
@@ -81,7 +91,7 @@ class DLRMTrainer(Reproducible):
             # 1. Construct model
             self.model_preproc.load_data_description()
             self._model = registry.construct(
-                'model', self.config,
+                'model', self.config_dict["model"],
                 preprocessor=self.model_preproc,
                 unused_keys=('name', 'preproc')
             )
@@ -94,7 +104,7 @@ class DLRMTrainer(Reproducible):
         if self._optimizer is None:
             with self.init_random:
                 self._optimizer = registry.construct(
-                    'optimizer', self.config_dict['train']['optimizer'],
+                    'optimizer', self.config_dict['trainer']['optimizer'],
                     params=self.model.parameters())
         return self._optimizer
 
@@ -103,7 +113,7 @@ class DLRMTrainer(Reproducible):
             with self.init_random:
                 self._scheduler = registry.construct(
                     'lr_scheduler',
-                    self.config_dict['train'].get(
+                    self.config_dict['trainer'].get(
                         'lr_scheduler', {'name': 'noop'}),
                     optimizer=optimizer, **kwargs)
         return self._scheduler

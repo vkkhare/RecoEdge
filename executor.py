@@ -5,8 +5,8 @@ import yaml
 import sys
 from fedrec.multiprocessing.jobber import Jobber
 from fedrec.multiprocessing.process_manager import ProcessManager
-
 from fedrec.python_executors.aggregator import Aggregator
+
 from fedrec.python_executors.trainer import Trainer
 from fedrec.utilities import registry
 from fedrec.utilities.logger import BaseLogger, NoOpLogger
@@ -51,20 +51,22 @@ def main():
         logger = TBLogger(args.logdir)
     else:
         logger = NoOpLogger()
-    JobExecutor(Trainer, config_dict, logger).run()
-    # process_manager: ProcessManager = registry.construct(
-    #     "process_manager", config_dict["multiprocessing"]["process_manager"])
+    # JobExecutor(Aggregator, config_dict, logger).run()
+    process_manager: ProcessManager = registry.construct(
+        "process_manager", config_dict["multiprocessing"]["process_manager"])
 
-    # process_manager.distribute(JobExecutor, Aggregator.__name__,
-    #                            config_dict["multiprocessing"]["num_aggregators"],
-    #                            actorCls=Aggregator, config=config_dict, logger=logger)
-    # process_manager.distribute(JobExecutor, Trainer.__name__,
-    #                            config_dict["multiprocessing"]["num_trainers"],
-    #                            actorCls=Trainer, config=config_dict, logger=logger)
+    process_manager.distribute(JobExecutor, Aggregator.__name__,
+                               config_dict["multiprocessing"]["num_aggregators"],
+                               actorCls=Aggregator, config=config_dict, logger=logger)
+    process_manager.distribute(JobExecutor, Trainer.__name__,
+                               config_dict["multiprocessing"]["num_trainers"],
+                               actorCls=Trainer, config=config_dict, logger=logger)
 
-    # process_manager.start(Aggregator.__name__, "run")
-    # process_manager.start(Trainer.__name__, "run")
+    process_manager.start(Aggregator.__name__, "run")
+    process_manager.start(Trainer.__name__, "run")
 
+    import time
+    time.sleep(234234)
 
 if __name__ == "__main__":
     main()

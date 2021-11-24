@@ -93,8 +93,10 @@ class Aggregator(BaseActor, ABC):
         # TODO update trainer logic to avoid double model initialization
         self.worker = registry.construct('aggregator', config['aggregator'],
                                          in_neighbours=in_neighbours, out_neighbours=out_neighbours)
-        self.worker_funcs = {func.__name__: func for func in dir(
-            self.worker) if callable(func)}
+        self.worker_funcs = {"test_run" : getattr(self.worker, "test_run")}
+
+        # # self.worker_funcs = {func.__name__: func for func in dir(
+        # #     self.worker) if callable(func)}
 
     def serialize(self):
         """Serialise the state of the worker to a AggregatorState.
@@ -141,8 +143,9 @@ class Aggregator(BaseActor, ABC):
 
         func_name : Name of the function to run in the aggregation
         """
+        print("func_name")
         if func_name in self.worker_funcs:
-            self.worker_funcs[func_name](*args, **kwargs)
+            return self.worker_funcs[func_name](*args, **kwargs)
         else:
             raise ValueError(
                 f"Job type <{func_name}> not part of worker <{self.worker.__class__.__name__}> functions")
